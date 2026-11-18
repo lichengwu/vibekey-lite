@@ -338,6 +338,41 @@ SET: 01 06 20 04 <brightness> 00 ...
 
 Their existence is static-confirmed; applicability to AU05 is not.
 
+### Frame provenance and rendering semantics (hardware-tested 2026-11-18 evening)
+
+The SET layout above is now byte-verified against disassembly of
+`Ulanzi_Studio.dylib` (`+[MessageHelper setDeviceIndicatorLight*]` family):
+`workModeType` computes the payload offset as `ledIndex * 5` and stores the
+value at `8 + 5*ledIndex`, `currentMode` writes mask `0x01` with the mode byte
+at offset 6, and `allOnModeBrightnessLevel` writes mask `0x02` with the level
+at offset 7. An earlier note claiming Studio SETs use command `0x48` was
+wrong — `0x48` belongs to the DialMini command family
+(`setDeviceDialMiniLed*`); every `IndicatorLight` setter uses `0x88`.
+
+Hooks toggle, for completeness, is `01 0b 89 04 <status@4>` (from
+`setDeviceHooksMode:`); AU05 acks it but never stores it — GET `0x89` keeps
+reading back `0`.
+
+Hardware experiment results on this unit:
+
+- The device accepts and stores every write in the layout above (GET readback
+  matches byte for byte) but **never renders the per-LED table**. Tested: all
+  four LEDs set to workType 0..5 at maximum brightness (both
+  params-then-mode and mode-then-params ordering), single-LED wt=2 windows,
+  and all-LED wt=1 solid windows — all black while the host was online with
+  heartbeats.
+- Global `currentMode` does render live while the host is online: mode `0` =
+  all lights off, mode `1` = all lights on (both reproduced multiple times).
+  Mode `2` and modes `3`-`9` render nothing (black).
+- The knob ring lights up on its own in native mode (no host), regardless of
+  what the tuple table contains (it stayed lit with wt=1 and wt=2 configs).
+  This is firmware idle behavior and is not host-controllable through any
+  frame found so far.
+
+Practical conclusion for M2: the only reliable host-driven LED expression on
+AU05 is the global mode switch — mode 1 (all on) versus mode 0 (all off).
+Treat the per-LED table as write-only storage on this firmware.
+
 ## Read-only power information
 
 VibeKey Lite reads these values for display and does not send the matching SET
