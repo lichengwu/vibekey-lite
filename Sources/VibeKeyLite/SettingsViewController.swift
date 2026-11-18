@@ -190,7 +190,7 @@ final class SettingsViewController: NSViewController {
                     if action == .switchProfile, control != .knobDoublePress {
                         continue
                     }
-                    let supported = action == .switchProfile || action == .fnDoubleTap
+                    let supported = action == .switchProfile || action.isAppOnly
                         || PresetNativeShortcutResolver.resolve(action) != .unsupported
                     let title = supported
                         ? action.displayName

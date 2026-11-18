@@ -135,7 +135,12 @@ final class IOKitHardwareConfigurator: HardwareConfigurator {
         let nativeAction: NativeHardwareAction
         switch assignment.binding {
         case let .preset(action):
-            nativeAction = PresetNativeShortcutResolver.resolve(action)
+            // App-only actions have no firmware representation. Write an empty
+            // slot so the rest of the six offline keys still sync (the FN/
+            // voice key can never work offline anyway — hardware limitation).
+            nativeAction = action.isAppOnly
+                ? .none
+                : PresetNativeShortcutResolver.resolve(action)
         case let .shortcut(shortcut):
             nativeAction = .shortcut(shortcut)
         }

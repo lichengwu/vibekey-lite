@@ -47,6 +47,12 @@ final class ActionPerformer {
             try postFunctionKeyTap()
             Thread.sleep(forTimeInterval: 0.08)
             try postFunctionKeyTap()
+        case .voiceInput:
+            // WeType only forwards the Globe/FN tap to its voice panel while
+            // it is the active input method; give the switch a moment to land.
+            InputMethodSwitcher.selectWeChatInputSource()
+            Thread.sleep(forTimeInterval: 0.12)
+            try postFunctionKeyTap()
         case let .media(keyType):
             postMediaKey(keyType)
         case let .shortcut(strokes):
@@ -89,6 +95,7 @@ final class ActionPerformer {
         case shortcut([Stroke])
         case media(Int32)
         case fnDoubleTap
+        case voiceInput
         case switchProfile
     }
 
@@ -98,6 +105,7 @@ final class ActionPerformer {
         case let .preset(action):
             if action == .switchProfile { return .switchProfile }
             if action == .fnDoubleTap { return .fnDoubleTap }
+            if action == .voiceInput { return .voiceInput }
             nativeAction = PresetNativeShortcutResolver.resolve(action)
         case let .shortcut(shortcut):
             nativeAction = .shortcut(shortcut)

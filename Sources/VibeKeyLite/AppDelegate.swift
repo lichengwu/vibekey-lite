@@ -151,8 +151,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.refreshUI()
                 return
             }
-            if binding == .preset(.fnDoubleTap) {
-                self.notice = "Fn 按兩次已保存；只在 App 開啟時執行，離線六鍵未更動。"
+            if case .preset(let action) = binding, action.isAppOnly {
+                self.notice = "App 專屬鍵已保存；只在 App 開啟時執行，離線六鍵會為它寫入空槽。"
             } else {
                 self.notice = control.isNativeHardwareControl
                     ? "設定已保存；按「設為離線備用」才會寫入 AU05。"
@@ -783,12 +783,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let profile = configuration[profileID]
-        if profile.indexedControlBindings.contains(where: {
-            $0.binding == .preset(.fnDoubleTap)
-        }) {
-            notice = "Fn 按兩次只在 App 開啟時執行；未改寫 AU05 的離線六鍵。"
-            refreshUI()
-            return
+        let hasAppOnlyBindings = profile.indexedControlBindings.contains {
+            if case .preset(let action) = $0.binding { return action.isAppOnly }
+            return false
         }
 
         if !needsHardwareSync {
@@ -833,6 +830,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         self.notice = "Ulanzi Studio 在寫入時開啟；裝置內容不確定。請關閉它，再按「離線備用」。"
                     } else if let markerSaveError = self.completeHardwareSync(profileID: profileID) {
                         self.notice = "已寫入「\(profileID.displayName)」，但同步狀態保存失敗：\(markerSaveError) 下次啟動會再寫一次。"
+                    } else if hasAppOnlyBindings {
+                        self.notice = "已寫入「\(profileID.displayName)」：關掉 App 仍可使用。App 專屬鍵（語音／Fn 雙擊）離線為空，該鍵需 App 執行。"
                     } else {
                         self.notice = "已寫入「\(profileID.displayName)」：關掉 App 仍可使用。"
                     }

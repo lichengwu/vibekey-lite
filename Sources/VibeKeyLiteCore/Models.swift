@@ -59,6 +59,7 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
     case escape
     case tab
     case fnDoubleTap
+    case voiceInput
     case optionKey
     case rightOptionKey
     case leftArrow
@@ -112,6 +113,7 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
         case .escape: "Escape"
         case .tab: "Tab"
         case .fnDoubleTap: "Fn 按兩次（App 開啟時）"
+        case .voiceInput: "語音輸入（自動切微信輸入法，App 開啟時）"
         case .optionKey: "左 Option"
         case .rightOptionKey: "右 Option"
         case .leftArrow: "方向鍵 ←"
@@ -162,7 +164,7 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
     public var category: KeyActionCategory {
         switch self {
         case .none, .space, .returnKey, .escape, .tab, .fnDoubleTap,
-             .optionKey, .rightOptionKey:
+             .voiceInput, .optionKey, .rightOptionKey:
             .basic
         case .leftArrow, .rightArrow, .upArrow, .downArrow,
              .deleteBackward, .deleteForward, .home, .end, .pageUp, .pageDown:
@@ -178,6 +180,13 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
              .previousTrack, .nextTrack, .playPause:
             .media
         }
+    }
+
+    /// App-only actions are performed by VibeKey Lite while it is running.
+    /// The AU05 firmware cannot store them in the six offline slots, so a
+    /// native sync writes an empty slot for them instead of failing.
+    public var isAppOnly: Bool {
+        self == .fnDoubleTap || self == .voiceInput
     }
 }
 
