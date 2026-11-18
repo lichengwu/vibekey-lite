@@ -113,7 +113,7 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
         case .escape: "Escape"
         case .tab: "Tab"
         case .fnDoubleTap: "Fn 按兩次（App 開啟時）"
-        case .voiceInput: "語音輸入（自動切微信輸入法，App 開啟時）"
+        case .voiceInput: "語音輸入（按住說話，自動切微信輸入法）"
         case .optionKey: "左 Option"
         case .rightOptionKey: "右 Option"
         case .leftArrow: "方向鍵 ←"
@@ -188,6 +188,12 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
     public var isAppOnly: Bool {
         self == .fnDoubleTap || self == .voiceInput
     }
+
+    /// Push-to-talk actions press a synthetic key on device key-down and hold
+    /// it until the device key-up, instead of sending one complete tap on down.
+    public var holdsSyntheticKeyUntilRelease: Bool {
+        self == .voiceInput
+    }
 }
 
 public enum KeyActionCategory: String, CaseIterable, Sendable {
@@ -243,6 +249,13 @@ public enum ControlBinding: Codable, Equatable, Sendable {
         case let .preset(action): action.displayName
         case let .shortcut(shortcut): shortcut.displayName
         }
+    }
+
+    public var holdsSyntheticKey: Bool {
+        if case .preset(let action) = self {
+            return action.holdsSyntheticKeyUntilRelease
+        }
+        return false
     }
 }
 

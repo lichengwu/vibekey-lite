@@ -48,11 +48,15 @@ final class ActionPerformer {
             Thread.sleep(forTimeInterval: 0.08)
             try postFunctionKeyTap()
         case .voiceInput:
-            // WeType only forwards the Globe/FN tap to its voice panel while
-            // it is the active input method; give the switch a moment to land.
+            // WeType voice is push-to-talk: hold Globe/FN to record, release
+            // to send. Register the synthetic FN stroke so release(for:)
+            // posts the matching key-up when the device button is released.
             InputMethodSwitcher.selectWeChatInputSource()
-            Thread.sleep(forTimeInterval: 0.12)
-            try postFunctionKeyTap()
+            Thread.sleep(forTimeInterval: 0.15)
+            var flags = CGEventSource.flagsState(.combinedSessionState)
+            flags.insert(.maskSecondaryFn)
+            try postKey(63, isDown: true, flags: flags)
+            pressed[control] = [Stroke(keyCode: 63, modifierFlag: .maskSecondaryFn)]
         case let .media(keyType):
             postMediaKey(keyType)
         case let .shortcut(strokes):

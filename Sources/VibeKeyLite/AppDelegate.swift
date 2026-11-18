@@ -649,12 +649,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleOrdinaryControl(_ control: InputControl, phase: KeyPhase) {
-        guard phase == .down else { return }
         let binding = configuration[configuration.activeProfile][control]
+        guard binding.holdsSyntheticKey else {
+            guard phase == .down else { return }
+            do {
+                // AU05 controls are macro triggers. Send one complete tap on
+                // down so a crash can never leave a synthetic modifier held.
+                try actionPerformer.tap(binding, for: control)
+            } catch {
+                notice = "按鍵執行失敗：\(error.localizedDescription)"
+                refreshUI()
+            }
+            return
+        }
+        // Push-to-talk actions: hold the synthetic key between device down/up.
         do {
-            // AU05 controls are macro triggers. Send one complete tap on down
-            // so a crash can never leave a synthetic modifier held.
-            try actionPerformer.tap(binding, for: control)
+            if phase == .down {
+                try actionPerformer.press(binding, for: control)
+            } else {
+                actionPerformer.release(for: control)
+            }
         } catch {
             notice = "按鍵執行失敗：\(error.localizedDescription)"
             refreshUI()
