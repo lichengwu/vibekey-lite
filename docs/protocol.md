@@ -296,6 +296,39 @@ brightness ranges, timing units, which physical light each LED index selects,
 GET-response layout, and visible AU05 behavior all need hardware tests. Start
 with GET/readback and low-risk values rather than guessing ranges.
 
+### GET response and SET acknowledgement (device-tested 2026-11-18)
+
+GET `01 0b 88 01` on this unit decrypts to:
+
+```text
+81 0b 88 11 <r> <r> <mode> <allOnBright>
+  <workType> <workTime> <breatheLevel> <breatheBright> <solidBright>   (LED 0)
+  ... one five-byte record per LED, LED 1-3 follow
+```
+
+- Header `81 0b 88 11`; the low bit of the status byte again denotes success.
+- Offsets 4-5 are reserved (observed `00 00`).
+- Offset 6 is `currentMode` (observed `2`); offset 7 is the all-on-mode
+  brightness level (observed `16`). These mirror the SET offsets for masks
+  `0x01`/`0x02`.
+- Per-LED records begin at offset 8 and mirror the per-LED SET offsets
+  exactly: workType, workTime, breatheLevel, breatheBrightness,
+  always-on brightness. The observed defaults were workType `2/0/0/1`,
+  workTime `10`, breatheLevel `2`, breathe/solid brightness `7` for all
+  four LEDs. These values match the vendor app's
+  `deviceIndicatorLightAllParams` readback byte for byte.
+
+A SET that the device accepted acked with:
+
+```text
+81 0b 88 14 <fieldMask> <ledIndex> <value echo ...>
+```
+
+i.e. status `0x14` and the request's mask/index/value bytes echoed back.
+Writing each field back with its current value changed nothing (verified by
+a follow-up GET), so same-value writes are a safe end-to-end check of the
+SET path.
+
 The generic library also has brightness commands:
 
 ```text
