@@ -7,7 +7,7 @@ public enum ProfileID: String, CaseIterable, Codable, Sendable {
     public var displayName: String {
         switch self {
         case .a: "AI"
-        case .b: "系統"
+        case .b: "系统"
         }
     }
 
@@ -27,13 +27,13 @@ public enum InputControl: String, CaseIterable, Codable, CodingKey, Sendable {
 
     public var displayName: String {
         switch self {
-        case .knobPress: "旋鈕單按"
-        case .knobDoublePress: "旋鈕雙按"
-        case .knobLeft: "旋鈕向左"
-        case .knobRight: "旋鈕向右"
-        case .topButton: "上鍵"
-        case .middleButton: "中鍵"
-        case .bottomButton: "下鍵"
+        case .knobPress: "旋钮單按"
+        case .knobDoublePress: "旋钮双按"
+        case .knobLeft: "旋钮向左"
+        case .knobRight: "旋钮向右"
+        case .topButton: "上键"
+        case .middleButton: "中键"
+        case .bottomButton: "下键"
         }
     }
 
@@ -112,14 +112,14 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
         case .returnKey: "Return"
         case .escape: "Escape"
         case .tab: "Tab"
-        case .fnDoubleTap: "Fn 按兩次（App 開啟時）"
-        case .voiceInput: "語音輸入（按住說話，自動切微信輸入法）"
+        case .fnDoubleTap: "Fn 按两次（App 开启时）"
+        case .voiceInput: "语音输入（按住说話，自动切微信输入法）"
         case .optionKey: "左 Option"
         case .rightOptionKey: "右 Option"
-        case .leftArrow: "方向鍵 ←"
-        case .rightArrow: "方向鍵 →"
-        case .upArrow: "方向鍵 ↑"
-        case .downArrow: "方向鍵 ↓"
+        case .leftArrow: "方向键 ←"
+        case .rightArrow: "方向键 →"
+        case .upArrow: "方向键 ↑"
+        case .downArrow: "方向键 ↓"
         case .deleteBackward: "Delete／Backspace"
         case .deleteForward: "Forward Delete"
         case .home: "Home"
@@ -138,26 +138,26 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
         case .f10: "F10"
         case .f11: "F11"
         case .f12: "F12"
-        case .selectAll: "⌘A（全選）"
-        case .copy: "⌘C（複製）"
-        case .paste: "⌘V（貼上）"
-        case .cut: "⌘X（剪下）"
-        case .undo: "⌘Z（復原）"
+        case .selectAll: "⌘A（全选）"
+        case .copy: "⌘C（复制）"
+        case .paste: "⌘V（粘贴）"
+        case .cut: "⌘X（剪切）"
+        case .undo: "⌘Z（复原）"
         case .redo: "⌘⇧Z（重做）"
-        case .save: "⌘S（儲存）"
-        case .appSwitcher: "⌘Tab（切換 App）"
+        case .save: "⌘S（储存）"
+        case .appSwitcher: "⌘Tab（切换 App）"
         case .spotlight: "⌘Space（Spotlight）"
-        case .screenshot: "⌘⇧5（截圖）"
+        case .screenshot: "⌘⇧5（截图）"
         case .missionControl: "⌃↑（Mission Control）"
-        case .switchProfile: "切換 AI／系統"
+        case .switchProfile: "切换 AI／系统"
         case .volumeUp: "音量提高"
         case .volumeDown: "音量降低"
-        case .mute: "靜音"
+        case .mute: "静音"
         case .brightnessUp: "亮度提高"
         case .brightnessDown: "亮度降低"
         case .previousTrack: "上一首"
         case .nextTrack: "下一首"
-        case .playPause: "播放／暫停"
+        case .playPause: "播放／暂停"
         }
     }
 
@@ -198,11 +198,11 @@ public enum KeyAction: String, CaseIterable, Codable, Sendable {
 
 public enum KeyActionCategory: String, CaseIterable, Sendable {
     case basic = "基本"
-    case navigation = "導航"
+    case navigation = "导航"
     case functionKeys = "F1–F12"
-    case editing = "編輯"
-    case system = "系統"
-    case media = "媒體"
+    case editing = "编辑"
+    case system = "系统"
+    case media = "媒体"
 }
 
 public enum ControlBinding: Codable, Equatable, Sendable {

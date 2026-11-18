@@ -10,11 +10,11 @@ extension VibeKeyPacketCodecError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .invalidPlaintextLength(actual):
-            "VibeKey 明文必須是 64 bytes，目前是 \(actual) bytes。"
+            "VibeKey 明文必须是 64 bytes，目前是 \(actual) bytes。"
         case let .invalidCiphertextLength(actual):
-            "VibeKey 密文長度必須是 8 的倍數，目前是 \(actual) bytes。"
+            "VibeKey 密文长度必须是 8 的倍数，目前是 \(actual) bytes。"
         case let .tooManyShortcutEntries(maximum, actual):
-            "裝置原生快捷鍵最多只能有 \(maximum) 個按鍵，目前是 \(actual) 個。"
+            "设备原生快捷键最多只能有 \(maximum) 个按键，目前是 \(actual) 个。"
         }
     }
 }
@@ -116,7 +116,7 @@ public enum VibeKeyPacketCodec {
             )
         }
 
-        let shortcut = try NativeShortcut(entries: entries, displayName: "自訂快捷鍵")
+        let shortcut = try NativeShortcut(entries: entries, displayName: "自定义快捷键")
         return shortcutPlaintext(index: index, validatedEntries: shortcut.entries)
     }
 

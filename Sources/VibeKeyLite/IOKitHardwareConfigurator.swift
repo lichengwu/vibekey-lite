@@ -13,17 +13,17 @@ enum IOKitHardwareConfiguratorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .managerOpenFailed(code):
-            "無法開啟 HID 管理器（\(Self.hex(code))）。"
+            "无法开启 HID 管理器（\(Self.hex(code))）。"
         case .deviceNotFound:
             "找不到 VibeKey（VID 0xFFF1、PID 0x00DD、usagePage 0xFFFC、usage 1）。"
         case let .deviceOpenFailed(code):
-            "找到 VibeKey，但無法開啟 custom HID 介面（\(Self.hex(code))）。"
+            "找到 VibeKey，但无法开启 custom HID 介面（\(Self.hex(code))）。"
         case let .offlineWriteFailed(code):
-            "AU05 無法確認回到原生模式（\(Self.hex(code))）。"
+            "AU05 无法确認回到原生模式（\(Self.hex(code))）。"
         case let .reportWriteFailed(index, code):
-            "寫入硬體動作 index \(index) 失敗（\(Self.hex(code))）。"
+            "写入硬件动作 index \(index) 失败（\(Self.hex(code))）。"
         case let .unsupportedAction(control, actionName):
-            "\(control.displayName) 的「\(actionName)」無法由 AU05 離線執行。"
+            "\(control.displayName) 的「\(actionName)」无法由 AU05 离线执行。"
         }
     }
 

@@ -64,7 +64,7 @@ final class MacKeyCodeShortcutMapperTests: XCTestCase {
             )
             XCTAssertEqual(
                 error.localizedDescription,
-                "AU05 韌體無法離線輸出 Fn。請在 Typeless 改用另一組快捷鍵。"
+                "AU05 固件无法离线输出 Fn。请在 Typeless 改用另一组快捷键。"
             )
         }
     }
@@ -107,7 +107,7 @@ final class MacKeyCodeShortcutMapperTests: XCTestCase {
                 )
                 XCTAssertEqual(
                     error.localizedDescription,
-                    "這台 AU05 無法輸出 \(name)。請選另一個按鍵。"
+                    "这台 AU05 无法输出 \(name)。请选另一个按键。"
                 )
             }
         }

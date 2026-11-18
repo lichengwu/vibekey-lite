@@ -10,15 +10,15 @@ enum ActionPerformerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .unsupportedAction(name):
-            "無法送出「\(name)」。"
+            "无法送出「\(name)」。"
         case let .unsupportedShortcutEntry(entry):
             String(
-                format: "無法送出快捷鍵資料（page 0x%02X、value 0x%02X）。",
+                format: "无法送出快捷键数据（page 0x%02X、value 0x%02X）。",
                 entry.pageAndSign,
                 entry.value
             )
         case .eventCreationFailed:
-            "macOS 無法建立鍵盤事件。"
+            "macOS 无法建立键盘事件。"
         }
     }
 }
@@ -51,7 +51,8 @@ final class ActionPerformer {
             // WeType voice is push-to-talk: hold Globe/FN to record, release
             // to send. Register the synthetic FN stroke so release(for:)
             // posts the matching key-up when the device button is released.
-            InputMethodSwitcher.selectWeChatInputSource()
+            let switched = InputMethodSwitcher.selectWeChatInputSource()
+            DebugLog.log("action voiceInput: IME switched=\(switched)")
             Thread.sleep(forTimeInterval: 0.15)
             var flags = CGEventSource.flagsState(.combinedSessionState)
             flags.insert(.maskSecondaryFn)

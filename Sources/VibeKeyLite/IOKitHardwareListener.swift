@@ -14,15 +14,15 @@ enum IOKitHardwareListenerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .managerOpenFailed(code):
-            "無法開啟 AU05 HID 監聽器（\(Self.hex(code))）。"
+            "无法开启 AU05 HID 监听器（\(Self.hex(code))）。"
         case let .heartbeatWriteFailed(code):
-            "AU05 線上模式中斷（\(Self.hex(code))）；已退回裝置原生按鍵。"
+            "AU05 在线模式中断（\(Self.hex(code))）；已退回设备原生按键。"
         case let .offlineWriteFailed(code):
-            "AU05 離線指令失敗（\(Self.hex(code))）；請結束 App，等待裝置自動恢復。"
+            "AU05 离线指令失败（\(Self.hex(code))）；请结束 App，等待设备自动恢复。"
         case .onlinePrerequisiteLost:
-            "進階手勢已停止；AU05 已退回裝置原生按鍵。"
+            "进階手势已停止；AU05 已退回设备原生按键。"
         case .invalidPowerSavingTransition:
-            "AU05 省電模式狀態已改變；請重新啟動 VibeKey Lite。"
+            "AU05 省電模式狀态已改变；请重新启动 VibeKey Lite。"
         }
     }
 
@@ -282,6 +282,7 @@ final class IOKitHardwareListener {
 
         guard inputDevice == nil else { return }
         attachInputDevice(device)
+        DebugLog.log("listener: input device attached")
 
         guard shouldRemainOnline() else {
             deliverOnMain { [failureHandler] in
@@ -295,6 +296,7 @@ final class IOKitHardwareListener {
         // fresh app session enters online mode. This does not rewrite any of
         // the six shortcuts stored in device flash.
         if let error = enterOnlineModeSynchronously(on: device, resetFirst: true) {
+            DebugLog.log("listener: enterOnlineMode FAILED: \(error.localizedDescription)")
             deliverOnMain { [failureHandler] in failureHandler(error) }
             return
         }

@@ -62,7 +62,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(configuration[.b][.middleButton], .preset(.mute))
         XCTAssertEqual(configuration[.b][.bottomButton], .preset(.appSwitcher))
         XCTAssertEqual(ProfileID.a.displayName, "AI")
-        XCTAssertEqual(ProfileID.b.displayName, "系統")
+        XCTAssertEqual(ProfileID.b.displayName, "系统")
     }
 
     func testRestoresLegacyReservedKnobInBothProfiles() {

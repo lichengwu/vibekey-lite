@@ -19,10 +19,10 @@ extension NativeShortcutError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .tooManyEntries(maximum, actual):
-            "裝置原生快捷鍵最多只能有 \(maximum) 個按鍵，目前是 \(actual) 個。"
+            "设备原生快捷键最多只能有 \(maximum) 个按键，目前是 \(actual) 个。"
         case let .invalidEntry(index, pageAndSign, value):
             String(
-                format: "第 %d 個硬體按鍵資料不安全（page 0x%02X、value 0x%02X）。",
+                format: "第 %d 个硬件按键数据不安全（page 0x%02X、value 0x%02X）。",
                 index + 1,
                 pageAndSign,
                 value

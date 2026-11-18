@@ -8,9 +8,9 @@ enum IOHIDListenAccessError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .denied:
-            "輸入監控權限已被拒絕。請到「系統設定 → 隱私權與安全性 → 輸入監控」允許 VibeKey Lite。"
+            "输入监控权限已被拒绝。请到「系统设置 → 隐私权与安全性 → 输入监控」允許 VibeKey Lite。"
         case .permissionRequired:
-            "已要求輸入監控權限。允許 VibeKey Lite 後，請按「套用並重啟」。"
+            "已要求输入监控权限。允許 VibeKey Lite 后，请按「套用并重启」。"
         }
     }
 }

@@ -11,13 +11,13 @@ extension MacKeyCodeShortcutError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .functionKeyUnsupported:
-            "AU05 韌體無法離線輸出 Fn。請在 Typeless 改用另一組快捷鍵。"
+            "AU05 固件无法离线输出 Fn。请在 Typeless 改用另一组快捷键。"
         case let .deviceFunctionKeyUnsupported(name):
-            "這台 AU05 無法輸出 \(name)。請選另一個按鍵。"
+            "这台 AU05 无法输出 \(name)。请选另一个按键。"
         case let .unsupportedKey(keyCode):
-            "AU05 不支援這個按鍵（macOS keyCode \(keyCode)）。"
+            "AU05 不支持这个按键（macOS keyCode \(keyCode)）。"
         case .tooManyKeys:
-            "AU05 一組快捷鍵最多可包含 4 個按鍵。"
+            "AU05 一组快捷键最多可包含 4 个按键。"
         }
     }
 }

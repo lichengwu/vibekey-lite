@@ -19,19 +19,19 @@ final class SettingsViewController: NSViewController {
     private var notice: String?
 
     private let profileSelector = NSSegmentedControl(
-        labels: ["AI", "系統"],
+        labels: ["AI", "系统"],
         trackingMode: .selectOne,
         target: nil,
         action: nil
     )
     private let statusLabel = NSTextField(labelWithString: "")
     private lazy var syncButton = NSButton(
-        title: "離線備用",
+        title: "离线备用",
         target: self,
         action: #selector(syncHardware(_:))
     )
     private lazy var restartButton = NSButton(
-        title: "重啟",
+        title: "重启",
         target: self,
         action: #selector(restartApplication(_:))
     )
@@ -60,17 +60,17 @@ final class SettingsViewController: NSViewController {
         title.font = .systemFont(ofSize: 18, weight: .semibold)
 
         let explanation = NSTextField(
-            wrappingLabelWithString: "旋鈕單按、雙按可各自設定；按住 0.65 秒固定切換 AI／系統。"
+            wrappingLabelWithString: "旋钮單按、双按可各自设置；按住 0.65 秒固定切换 AI／系统。"
         )
         explanation.textColor = .secondaryLabelColor
         explanation.font = .systemFont(ofSize: 12)
 
         profileSelector.target = self
         profileSelector.action = #selector(profileChanged(_:))
-        profileSelector.setAccessibilityLabel("目前設定組")
+        profileSelector.setAccessibilityLabel("目前设置组")
 
         let profileRow = NSStackView(views: [
-            NSTextField(labelWithString: "目前設定組"),
+            NSTextField(labelWithString: "目前设置组"),
             profileSelector
         ])
         profileRow.orientation = .horizontal
@@ -81,7 +81,7 @@ final class SettingsViewController: NSViewController {
         let mappingGrid = makeMappingGrid()
 
         let syncExplanation = NSTextField(
-            wrappingLabelWithString: "按「離線備用」才會把目前六個單按寫進 AU05；App 結束後使用那一組。"
+            wrappingLabelWithString: "按「离线备用」才会把目前六个單按写进 AU05；App 结束后使用那一组。"
         )
         syncExplanation.textColor = .secondaryLabelColor
         syncExplanation.font = .systemFont(ofSize: 11)
@@ -96,7 +96,7 @@ final class SettingsViewController: NSViewController {
         enhancedModeButton.bezelStyle = .rounded
 
         let quitButton = NSButton(
-            title: "結束",
+            title: "结束",
             target: self,
             action: #selector(quit(_:))
         )
@@ -194,7 +194,7 @@ final class SettingsViewController: NSViewController {
                         || PresetNativeShortcutResolver.resolve(action) != .unsupported
                     let title = supported
                         ? action.displayName
-                        : "\(action.displayName)（AU05 離線不支援）"
+                        : "\(action.displayName)（AU05 离线不支持）"
                     popup.addItem(withTitle: title)
                     popup.lastItem?.representedObject = action.rawValue
                     popup.lastItem?.isEnabled = supported
@@ -203,7 +203,7 @@ final class SettingsViewController: NSViewController {
 
             popup.menu?.addItem(.separator())
             let recordItem = NSMenuItem(
-                title: "錄製鍵盤按鍵…",
+                title: "录制键盘按键…",
                 action: nil,
                 keyEquivalent: ""
             )
@@ -229,8 +229,8 @@ final class SettingsViewController: NSViewController {
         syncButton.isEnabled = !hardwareSyncInProgress
         restartButton.isEnabled = !hardwareSyncInProgress
         enhancedModeButton.isEnabled = !hardwareSyncInProgress
-        enhancedModeButton.title = listenerActive ? "只用原生" : "啟用手勢"
-        syncButton.title = hardwareSyncInProgress ? "寫入中…" : "離線備用"
+        enhancedModeButton.title = listenerActive ? "只用原生" : "启用手势"
+        syncButton.title = hardwareSyncInProgress ? "写入中…" : "离线备用"
         let profile = configuration.activeProfile
 
         for control in InputControl.allCases {
@@ -244,12 +244,12 @@ final class SettingsViewController: NSViewController {
                 }
                 popup?.itemArray.first {
                     ($0.representedObject as? String) == recordShortcutToken
-                }?.title = "錄製鍵盤按鍵…"
+                }?.title = "录制键盘按键…"
             case let .shortcut(shortcut):
                 matchingItem = popup?.itemArray.first {
                     ($0.representedObject as? String) == recordShortcutToken
                 }
-                matchingItem?.title = "自訂：\(shortcut.displayName)"
+                matchingItem?.title = "自定义：\(shortcut.displayName)"
             }
             popup?.select(matchingItem)
             popup?.isEnabled = !hardwareSyncInProgress
@@ -257,29 +257,29 @@ final class SettingsViewController: NSViewController {
 
         let statusMessage: String
         if !accessibilityGranted {
-            statusMessage = notice ?? "原生六鍵仍可用；允許輔助使用後才會啟用多重手勢。"
+            statusMessage = notice ?? "原生六键仍可用；允許辅助使用后才会启用多重手势。"
             statusLabel.textColor = .systemOrange
         } else if !listenerActive {
-            statusMessage = notice ?? "原生按鍵仍可用；允許輸入監控後才能長按切換。"
+            statusMessage = notice ?? "原生按键仍可用；允許输入监控后才能长按切换。"
             statusLabel.textColor = .systemOrange
         } else if powerSaving {
-            statusMessage = notice ?? "閒置省電中；控制器醒來後會自動恢復三種手勢。"
+            statusMessage = notice ?? "閒置省電中；控制器醒來后会自动恢复三种手势。"
             statusLabel.textColor = .secondaryLabelColor
         } else if let notice {
             statusMessage = notice
-            if notice.hasPrefix("已寫入") {
+            if notice.hasPrefix("已写入") {
                 statusLabel.textColor = .systemGreen
-            } else if notice.hasPrefix("正在寫入") {
+            } else if notice.hasPrefix("正在写入") {
                 statusLabel.textColor = .secondaryLabelColor
             } else {
                 statusLabel.textColor = .systemOrange
             }
         } else if deviceConnected {
-            let offlineName = configuration.offlineProfile?.displayName ?? "尚未設定"
-            statusMessage = "AU05 已連接；三種手勢可用。離線備用：\(offlineName)。"
+            let offlineName = configuration.offlineProfile?.displayName ?? "尚未设置"
+            statusMessage = "AU05 已连接；三种手势可用。离线备用：\(offlineName)。"
             statusLabel.textColor = .secondaryLabelColor
         } else {
-            statusMessage = "權限可用，正在等待 AU05。"
+            statusMessage = "权限可用，正在等待 AU05。"
             statusLabel.textColor = .secondaryLabelColor
         }
 
@@ -292,7 +292,7 @@ final class SettingsViewController: NSViewController {
             if battery.isCharging {
                 batteryText = "充電中 \(battery.percent)%"
             } else if battery.isFullyCharged {
-                batteryText = "已充滿 \(battery.percent)%"
+                batteryText = "已充满 \(battery.percent)%"
             } else {
                 batteryText = "電量 \(battery.percent)%"
             }
@@ -303,12 +303,12 @@ final class SettingsViewController: NSViewController {
         let standbyText = powerStatus.standbyTimeSeconds.map(Self.durationText) ?? "—"
         let sleepText = powerStatus.sleepTimeSeconds.map(Self.durationText) ?? "—"
         let stateText = powerSaving || powerStatus.isStandby == true ? "　省電中" : ""
-        return "\(batteryText)　待機 \(standbyText)　關機 \(sleepText)\(stateText)"
+        return "\(batteryText)　待机 \(standbyText)　关机 \(sleepText)\(stateText)"
     }
 
     private static func durationText(_ seconds: UInt32) -> String {
         if seconds > 0, seconds.isMultiple(of: 3_600) {
-            return "\(seconds / 3_600) 小時"
+            return "\(seconds / 3_600) 小时"
         }
         if seconds > 0, seconds.isMultiple(of: 60) {
             return "\(seconds / 60) 分"

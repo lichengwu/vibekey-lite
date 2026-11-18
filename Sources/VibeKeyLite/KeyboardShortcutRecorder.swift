@@ -6,8 +6,8 @@ enum KeyboardShortcutRecorder {
     static func record() -> Result<NativeShortcut, Error>? {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "錄製硬體快捷鍵"
-        alert.informativeText = "請直接按下按鍵或組合鍵。可分辨左／右 Option、Control、Shift、Command。"
+        alert.messageText = "录制硬件快捷键"
+        alert.informativeText = "请直接按下按键或组合键。可分辨左／右 Option、Control、Shift、Command。"
         alert.addButton(withTitle: "取消")
 
         let captureView = ShortcutCaptureView(frame: NSRect(x: 0, y: 0, width: 320, height: 58))
@@ -31,7 +31,7 @@ enum KeyboardShortcutRecorder {
 private final class ShortcutCaptureView: NSView {
     var onCapture: ((Result<NativeShortcut, Error>) -> Void)?
 
-    private let promptLabel = NSTextField(labelWithString: "等待按鍵…")
+    private let promptLabel = NSTextField(labelWithString: "等待按键…")
     private var modifierOrder: [UInt16] = []
     private var pressedModifiers: Set<UInt16> = []
 
@@ -63,7 +63,7 @@ private final class ShortcutCaptureView: NSView {
     }
 
     override func becomeFirstResponder() -> Bool {
-        promptLabel.stringValue = "請按下快捷鍵"
+        promptLabel.stringValue = "请按下快捷键"
         return true
     }
 
