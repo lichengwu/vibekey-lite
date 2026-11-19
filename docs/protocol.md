@@ -378,23 +378,46 @@ rendering works. Confirmed semantics (Olanzi source + this unit):
 - Rendering is triggered by a **new write**; re-applying an identical state
   sends nothing and changes nothing.
 
-Hardware results on this unit (full-payload writes, host online with
-heartbeats, VibeKey Lite both running and quit — no difference):
+### Second correction: workTime is the render gate (2026-11-19 late night)
 
-- **Knob (idx3) solid wt=1 renders reliably.** Verified with a clean
-  all-off → knob-on transition (user confirmed off, then lit).
-- **Key LEDs idx0/idx1/idx2 do NOT render in work mode** on this firmware:
-  key1 solid, key1 breathe, key2 solid, key3 solid all stayed black despite
-  byte-exact GET readback. Only the knob is individually controllable.
-- **Breathe (wt=2) does not render on the knob** either: a fresh
-  solid → breathe write stayed black. Only solid wt=1 works.
-- Global mode 0 (all off) / mode 1 (all on) still render live as before.
+The "key LEDs do not render" finding above was **also incomplete**. The real
+gate is the per-LED **workTime** field (tuple offset +1, SET mask `0x08`):
 
-Practical conclusion for M2 (revised): the reliable host-driven expressions
-are (a) the global mode 0/1 switch, and (b) **knob-only solid on/off** via a
-full-payload work-mode write (idx3 wt=1 vs wt=0, other slots 0). A "thinking"
-breathe effect is not available on this firmware; approximate it by toggling
-the knob solid on/off, or fall back to the global all-on/all-off switch.
+- With the factory `workTime = 10`, a solid key LED lights for only ~10 s then
+  auto-extinguishes. Earlier observations ("black") were made after that
+  window, so the keys looked dead.
+- Writing `workTime = 255` via mask `0x08` makes key LEDs stay lit
+  indefinitely. **The mask-0x08 frame is mandatory** — putting 255 in the
+  full-payload tuple alone is ignored; GET keeps echoing the old value until a
+  dedicated workTime write lands. (Olanzi forbids workTime edits, which hid
+  this lever from us.)
+- Write order that works: workTime (`0x08`) / breatheLevel (`0x10`) first,
+  then brightness (`0x20`/`0x40`), then workType (`0x04`) last as the
+  "activate" trigger. A changed workType re-fires rendering.
+
+Hardware results on this unit (full-payload + workTime=255, host online):
+
+- **idx1 (middle key) and idx2 (bottom key) solid wt=1 render and stay lit.**
+  Confirmed by the user across a >30 s window.
+- **idx3 (knob) solid wt=1 renders reliably** (workTime not required for the
+  knob; it ignores the timeout). idx3 = knob re-confirmed by isolation.
+- **idx0 (top / voice key) does NOT render in work mode** under any tested
+  combo: wt=1 solid, wt=2 breathe (breatheLevel 2 and 6, brightness 15/20,
+  workTime 10/255), and a wt=3..7 sweep — all black. Yet in **mode 1 (all on)
+  all four LEDs including idx0 light**, so the hardware is fine. This matches
+  Studio: `UlanziDeck::updateIndicatorLightByState` only writes idx **1/2/3**
+  (loop indices 1,2,3) and never touches idx0. The voice-key LED appears to be
+  a recording indicator driven by mic state, not by the AI-state light table.
+- Breathe (wt=2) still did not render on idx1/idx2/idx3 in our tests; solid
+  wt=1 is the reliable per-LED effect.
+
+Practical conclusion for M2 (final): three independently controllable solid
+LEDs — **middle key (idx1), bottom key (idx2), knob (idx3)** — each on/off via
+a full-payload work-mode write with workTime=255. Plus the global mode 0/1
+switch (which also lights the voice key). This is enough for real state
+encoding, e.g. idle = all off, working = knob solid, attention = middle +
+bottom solid, thinking = knob blink. The voice-key LED (idx0) is not
+host-addressable in work mode on this firmware.
 
 ## Read-only power information
 
