@@ -353,25 +353,48 @@ Hooks toggle, for completeness, is `01 0b 89 04 <status@4>` (from
 `setDeviceHooksMode:`); AU05 acks it but never stores it — GET `0x89` keeps
 reading back `0`.
 
-Hardware experiment results on this unit:
+### Correction: full-payload SET frames DO render (hardware-tested 2026-11-19 evening)
 
-- The device accepts and stores every write in the layout above (GET readback
-  matches byte for byte) but **never renders the per-LED table**. Tested: all
-  four LEDs set to workType 0..5 at maximum brightness (both
-  params-then-mode and mode-then-params ordering), single-LED wt=2 windows,
-  and all-LED wt=1 solid windows — all black while the host was online with
-  heartbeats.
-- Global `currentMode` does render live while the host is online: mode `0` =
-  all lights off, mode `1` = all lights on (both reproduced multiple times).
-  Mode `2` and modes `3`-`9` render nothing (black).
-- The knob ring lights up on its own in native mode (no host), regardless of
-  what the tuple table contains (it stayed lit with wt=1 and wt=2 configs).
-  This is firmware idle behavior and is not host-controllable through any
-  frame found so far.
+The 2026-11-18 conclusion "stores but never renders" was **wrong about the
+cause**. Cross-referencing the community driver
+[`MrCroxx/olanzi`](https://github.com/MrCroxx/olanzi)
+(`native/Sources/OlanziCore/DeviceLighting.swift`) revealed the missing rule:
 
-Practical conclusion for M2: the only reliable host-driven LED expression on
-AU05 is the global mode switch — mode 1 (all on) versus mode 0 (all off).
-Treat the per-LED table as write-only storage on this firmware.
+> Every SET frame must carry the **complete four-LED record** (mode +
+> brightness + all four 5-byte tuples). The mask only selects which field this
+> write changes; the firmware clears any slot left unfilled.
+
+Our earlier probes filled a single slot and zeroed the rest, so the firmware
+wiped the table on every write — hence "stored but black". With full-payload
+frames (`01 0b 88 04 <mask> <focus> <mode> <bright> + 4×5-byte tuples`),
+rendering works. Confirmed semantics (Olanzi source + this unit):
+
+- `currentMode`: `0` = all off, `1` = all on (global brightness at offset 7),
+  `2` = work mode (per-LED table renders). Modes > 2 are not valid writes.
+- Per-LED `workType`: `0` = off, `1` = solid (uses `alwaysOnBrightness`),
+  `2` = breathe (uses `breatheBrightness`). Brightness range 0..20.
+- LED index map: `idx0` = key 1 (top/voice), `idx1` = key 2 (middle),
+  `idx2` = key 3 (bottom), **`idx3` = knob**.
+- Rendering is triggered by a **new write**; re-applying an identical state
+  sends nothing and changes nothing.
+
+Hardware results on this unit (full-payload writes, host online with
+heartbeats, VibeKey Lite both running and quit — no difference):
+
+- **Knob (idx3) solid wt=1 renders reliably.** Verified with a clean
+  all-off → knob-on transition (user confirmed off, then lit).
+- **Key LEDs idx0/idx1/idx2 do NOT render in work mode** on this firmware:
+  key1 solid, key1 breathe, key2 solid, key3 solid all stayed black despite
+  byte-exact GET readback. Only the knob is individually controllable.
+- **Breathe (wt=2) does not render on the knob** either: a fresh
+  solid → breathe write stayed black. Only solid wt=1 works.
+- Global mode 0 (all off) / mode 1 (all on) still render live as before.
+
+Practical conclusion for M2 (revised): the reliable host-driven expressions
+are (a) the global mode 0/1 switch, and (b) **knob-only solid on/off** via a
+full-payload work-mode write (idx3 wt=1 vs wt=0, other slots 0). A "thinking"
+breathe effect is not available on this firmware; approximate it by toggling
+the knob solid on/off, or fall back to the global all-on/all-off switch.
 
 ## Read-only power information
 
