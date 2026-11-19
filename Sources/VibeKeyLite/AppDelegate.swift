@@ -1,5 +1,6 @@
 import AppKit
 import OSLog
+import ServiceManagement
 import VibeKeyLiteCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -165,10 +166,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.restartApplication()
         }
         settings.onSyncHardware = { [weak self] in
-            self?.confirmAndSyncHardware()
+            self?.syncHardwareFromUI()
         }
         settings.onToggleEnhancedMode = { [weak self] in
             self?.toggleEnhancedMode()
+        }
+        settings.onToggleLaunchAtLogin = { [weak self] in
+            self?.toggleLaunchAtLogin()
         }
         settings.onQuit = {
             NSApplication.shared.terminate(nil)
@@ -528,7 +532,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard vendorApplicationIsNotRunning else {
             listenerActive = false
             deviceConnected = false
-            notice = "Ulanzi Studio 执行中；已保留 AU05 原生模式。"
+            notice = "Ulanzi Studio 正在运行，按键由它接管。点「离线备用」会自动退出它并写入。"
             refreshUI()
             return
         }
@@ -771,19 +775,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshUI()
     }
 
-    private func confirmAndSyncHardware() {
+    private func syncHardwareFromUI() {
         guard !hardwareSyncInProgress else { return }
-        let profileID = configuration.activeProfile
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "要重写目前这组 6 个原生按键吗？"
-        alert.informativeText = "这会把「\(profileID.displayName)」的完整六格写入 AU05；关掉 VibeKey Lite 后仍可使用。"
-        alert.addButton(withTitle: "同步")
-        alert.addButton(withTitle: "取消")
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        syncHardware(profileID: profileID)
+        syncHardware(profileID: configuration.activeProfile)
     }
 
     private func syncHardware(profileID: ProfileID) {
@@ -795,14 +789,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard !hardwareSyncInProgress else { return }
 
-        let vendorBundleIdentifier = "ulanzi.UlanziStudio"
-        guard NSRunningApplication.runningApplications(
-            withBundleIdentifier: vendorBundleIdentifier
-        ).isEmpty else {
-            notice = "请先完全结束 Ulanzi Studio，再同步到设备。"
-            refreshUI()
+        if let vendor = NSRunningApplication.runningApplications(
+            withBundleIdentifier: Self.vendorBundleIdentifier
+        ).first {
+            exitVendorThenSync(vendor: vendor, profileID: profileID)
             return
         }
+
+        continueSyncHardware(profileID: profileID)
+    }
+
+    /// Ulanzi Studio holds the AU05 in native mode and conflicts with any
+    /// write. Quit it on the user's behalf (graceful first, then force) and
+    /// only ask for manual action if it survives both.
+    private func exitVendorThenSync(vendor: NSRunningApplication, profileID: ProfileID) {
+        hardwareSyncInProgress = true
+        vendorInterferedDuringHardwareSync = false
+        notice = "Ulanzi Studio 正在运行；正在自动退出它…"
+        refreshUI()
+        vendor.terminate()
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var deadline = Date().addingTimeInterval(4)
+            while Date() < deadline, !vendor.isTerminated {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if !vendor.isTerminated {
+                vendor.forceTerminate()
+                deadline = Date().addingTimeInterval(2)
+                while Date() < deadline, !vendor.isTerminated {
+                    Thread.sleep(forTimeInterval: 0.1)
+                }
+            }
+            let vendorExited = vendor.isTerminated
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.hardwareSyncInProgress = false
+                guard vendorExited else {
+                    self.notice = "Ulanzi Studio 未退出；未写入 AU05。"
+                    let alert = NSAlert()
+                    alert.alertStyle = .warning
+                    alert.messageText = "Ulanzi Studio 没有退出，无法写入 AU05"
+                    alert.informativeText = "Ulanzi Studio 正在接管 AU05，且未能自动退出。请手动完全退出它（程序坞右键图标选「退出」，或 ⌘Q），然后再点一次「离线备用」。"
+                    alert.addButton(withTitle: "知道了")
+                    alert.runModal()
+                    self.refreshUI()
+                    return
+                }
+                self.continueSyncHardware(profileID: profileID)
+            }
+        }
+    }
+
+    private func continueSyncHardware(profileID: ProfileID) {
 
         let profile = configuration[profileID]
         let hasAppOnlyBindings = profile.indexedControlBindings.contains {
@@ -849,7 +889,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         || !self.vendorApplicationIsNotRunning {
                         self.configuration.needsHardwareSync = true
                         self.needsHardwareSync = true
-                        self.notice = "Ulanzi Studio 在写入时开启；设备內容不确定。请关閉它，再按「离线备用」。"
+                        self.notice = "Ulanzi Studio 在写入时开启；设备内容不确定。请关闭它，再按「离线备用」。"
+                        self.presentSyncFailureAlert(
+                            "写入过程中 Ulanzi Studio 开启了，设备内容不确定。请完全退出 Ulanzi Studio，再点一次「离线备用」。"
+                        )
                     } else if let markerSaveError = self.completeHardwareSync(profileID: profileID) {
                         self.notice = "已写入「\(profileID.displayName)」，但同步狀态保存失败：\(markerSaveError) 下次启动会再写一次。"
                     } else if hasAppOnlyBindings {
@@ -870,7 +913,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         switch configurationError {
                         case .offlineWriteFailed:
                             self.offlineStateUnconfirmed = true
-                            self.notice = "同步中止：\(error.localizedDescription) 六键尚未开始写入；请保持连接再試。"
+                            self.notice = "同步中止：\(error.localizedDescription) 六键尚未开始写入；请保持连接再试。"
                         case .reportWriteFailed:
                             self.offlineStateUnconfirmed = false
                             self.notice = "同步失败：\(error.localizedDescription) 设备可能只写入部分；请保持连接，再按「离线备用」。"
@@ -880,6 +923,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     } else {
                         self.notice = "同步失败：\(error.localizedDescription)"
                     }
+                    self.presentSyncFailureAlert(self.notice ?? "同步失败。")
                     self.logger.error(
                         "Hardware profile write failed: \(error.localizedDescription, privacy: .public)"
                     )
@@ -890,9 +934,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private static let vendorBundleIdentifier = "ulanzi.UlanziStudio"
+
+    /// User-visible guidance when the offline write does not complete. The
+    /// button no longer confirms before writing; failing after the fact is
+    /// when the user needs a dialog.
+    private func presentSyncFailureAlert(_ guidance: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "「离线备用」没有完成"
+        alert.informativeText = guidance
+        alert.addButton(withTitle: "知道了")
+        alert.runModal()
+    }
+
+    private var launchAtLoginStatusEnabled: Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    private func toggleLaunchAtLogin() {
+        let service = SMAppService.mainApp
+        switch service.status {
+        case .enabled:
+            do {
+                try service.unregister()
+            } catch {
+                notice = "关闭开机自启失败：\(error.localizedDescription)"
+            }
+        default:
+            do {
+                try service.register()
+                notice = "已开启开机自启；下次重启后 VibeKey Lite 会自动运行。"
+            } catch {
+                notice = "开启开机自启失败：\(error.localizedDescription)"
+            }
+        }
+        refreshUI()
+    }
+
     private var vendorApplicationIsNotRunning: Bool {
         NSRunningApplication.runningApplications(
-            withBundleIdentifier: "ulanzi.UlanziStudio"
+            withBundleIdentifier: Self.vendorBundleIdentifier
         ).isEmpty
     }
 
@@ -963,6 +1045,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             powerStatus: devicePowerStatus,
             powerSaving: powerSaving,
             hardwareSyncInProgress: hardwareSyncInProgress,
+            launchAtLoginEnabled: launchAtLoginStatusEnabled,
             notice: notice
         )
     }

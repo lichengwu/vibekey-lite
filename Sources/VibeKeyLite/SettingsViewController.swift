@@ -7,6 +7,7 @@ final class SettingsViewController: NSViewController {
     var onRestartApplication: (() -> Void)?
     var onSyncHardware: (() -> Void)?
     var onToggleEnhancedMode: (() -> Void)?
+    var onToggleLaunchAtLogin: (() -> Void)?
     var onQuit: (() -> Void)?
 
     private var configuration: AppConfiguration
@@ -16,6 +17,7 @@ final class SettingsViewController: NSViewController {
     private var powerStatus = VibeKeyPowerSnapshot()
     private var powerSaving = false
     private var hardwareSyncInProgress = false
+    private var launchAtLoginEnabled = false
     private var notice: String?
 
     private let profileSelector = NSSegmentedControl(
@@ -40,6 +42,11 @@ final class SettingsViewController: NSViewController {
         target: self,
         action: #selector(toggleEnhancedMode(_:))
     )
+    private lazy var launchAtLoginButton = NSButton(
+        checkboxWithTitle: "开机自启（重启电脑后自动运行）",
+        target: self,
+        action: #selector(toggleLaunchAtLogin(_:))
+    )
     private var actionPopups: [InputControl: NSPopUpButton] = [:]
     private let recordShortcutToken = "__record_native_shortcut__"
 
@@ -54,7 +61,7 @@ final class SettingsViewController: NSViewController {
     }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 390, height: 365))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 390, height: 390))
 
         let title = NSTextField(labelWithString: "VibeKey Lite")
         title.font = .systemFont(ofSize: 18, weight: .semibold)
@@ -120,7 +127,8 @@ final class SettingsViewController: NSViewController {
             mappingGrid,
             syncExplanation,
             statusLabel,
-            buttons
+            buttons,
+            launchAtLoginButton
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -150,6 +158,7 @@ final class SettingsViewController: NSViewController {
         powerStatus: VibeKeyPowerSnapshot,
         powerSaving: Bool,
         hardwareSyncInProgress: Bool,
+        launchAtLoginEnabled: Bool,
         notice: String?
     ) {
         self.configuration = configuration
@@ -159,6 +168,7 @@ final class SettingsViewController: NSViewController {
         self.powerStatus = powerStatus
         self.powerSaving = powerSaving
         self.hardwareSyncInProgress = hardwareSyncInProgress
+        self.launchAtLoginEnabled = launchAtLoginEnabled
         self.notice = notice
 
         if isViewLoaded {
@@ -231,6 +241,8 @@ final class SettingsViewController: NSViewController {
         enhancedModeButton.isEnabled = !hardwareSyncInProgress
         enhancedModeButton.title = listenerActive ? "只用原生" : "启用手势"
         syncButton.title = hardwareSyncInProgress ? "写入中…" : "离线备用"
+        launchAtLoginButton.state = launchAtLoginEnabled ? .on : .off
+        launchAtLoginButton.isEnabled = !hardwareSyncInProgress
         let profile = configuration.activeProfile
 
         for control in InputControl.allCases {
@@ -372,6 +384,10 @@ final class SettingsViewController: NSViewController {
 
     @objc private func toggleEnhancedMode(_ sender: Any?) {
         onToggleEnhancedMode?()
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: Any?) {
+        onToggleLaunchAtLogin?()
     }
 
     @objc private func quit(_ sender: Any?) {
