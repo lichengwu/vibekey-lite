@@ -419,6 +419,46 @@ encoding, e.g. idle = all off, working = knob solid, attention = middle +
 bottom solid, thinking = knob blink. The voice-key LED (idx0) is not
 host-addressable in work mode on this firmware.
 
+### Voice-key LED final verdict + dead-end channels (2026-11-20)
+
+Deep investigation (official SDK exports, Studio main binary, local
+`ustudio-cli` hook sources, official manual, community drivers) closed the
+idx0 question:
+
+- **The voice-key LED is a firmware-driven key-event feedback light.** User
+  observation: it flashes once on key *release* (press → release → blink),
+  in work mode. This matches the official manual: "Work Mode: the device
+  lighting provides corresponding status feedback based on physical
+  inputs." No host frame can hold it lit; the 0x88 table slot idx0 is
+  stored but never rendered (wt 1/2, all brightness/level/workTime combos,
+  wt 3..7 sweep — all black; mode 1 all-on does light it, so hardware OK).
+- **Mic UI flick mode** (`GET 01 06 24 01`, `SET 01 06 22 04 <mode>`):
+  acks but never stores (GET always 0), modes 1/2 render nothing. The
+  Studio main binary has zero references to it — SDK leftover for other
+  models. **Mic enable** (`01 01 2A 04 <0/1>`) acks and stores, but
+  enabling it broke the voice key's normal function until disabled — do
+  not use.
+- **LedEffect RGB channel** (`support GET 01 06 39 01`,
+  `params GET 01 06 11 01`,
+  `SET 01 06 11 04 00 <mode> <speed> <bright> 00 <R> <G> <B>`):
+  AU05 acks and stores byte-exact (factory readback: mode=6 speed=1
+  bright=0xB0 RGB=0), but modes 0..7 × white × bright 176 all render
+  nothing, in global mode 0 and 2 alike. Support query returns 0. Main
+  binary has zero references. Dead end on this model — likely a
+  full-color-LED product family interface (Dial/TC002).
+- **Official AI-state pipeline** (local
+  `~/Library/Application Support/Ulanzi/UlanziDeck/ustudio-cli/hooks/*.js`,
+  plaintext): agent hook events map to states — `UserPromptSubmit →
+  thinking`, `PreToolUse/PostToolUse → working`, `Stop → attention`,
+  `Notification/PermissionRequest → notification`, `PreCompact →
+  sweeping`, `SessionStart → idle`, `SessionEnd → sleeping`,
+  `*Failure → error` (maps for claude-code, codex, gemini-cli,
+  cursor-agent, codebuddy, kiro-cli, kimi-cli, copilot-cli). Events travel
+  as `ai-tool-state` JSON (HTTP POST for WiFi devices; USB devices go
+  through Studio's local socket). Studio then writes only idx 1/2/3 via
+  the 0x88 table — idx0 is never touched by the official pipeline either.
+  This mapping table is directly reusable for VibeKey Lite M2.
+
 ## Read-only power information
 
 VibeKey Lite reads these values for display and does not send the matching SET
