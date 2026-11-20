@@ -69,7 +69,7 @@ Codex 走 config.toml（官方 ustudio-cli 已有先例）。DSH 走 cordis.patc
 | Claude Code | `~/.claude/settings.json` | Claude hooks JSON（command） | 官方 mappings.js `claude-code` | 未装（目录无） |
 | Qwen Code（千问 CLI） | `~/.qwen/settings.json` | Claude 同构（官方文档确认字段兼容，23 事件） | 复用 claude-code 表 | 未装 |
 | Qoder（阿里） | `~/.qoder/settings.json` | Claude 同构（官方 docs.qoder.com，27 事件含 TaskCompleted/PermissionRequest） | 复用 claude-code 表 + TaskCompleted→attention | **已装**（~/.qoder 存在） |
-| CodeBuddy（腾讯） | `~/.codebuddy/settings.json`（待核实路径） | Claude 同构 | 官方 mappings.js `codebuddy` | WorkBuddy 在用 |
+| CodeBuddy（腾讯）/ WorkBuddy | `~/.workbuddy/settings.json`（2026-11-20 实机核实；原 `~/.codebuddy` 猜测已纠正） | Claude 同构 | 官方 mappings.js `codebuddy` | WorkBuddy 在用 |
 | Codex | `~/.codex/config.toml` | TOML notify/hooks | 官方 mappings.js `codex` + installers/codex-config.js | 未装 |
 | DeepSeek Harness (DSH) | `~/.dsh/profiles/<p>/cordis.patch.yml` | dsh-hooks 插件：`on: turn/end / tool/call / approval/asked`，`run:` 命令，stdin context JSON | turn/end(completed)→attention、tool/call→working、approval/asked→notification、agent/error→error | 未装 |
 | **千问办公 QwenWork**（阿里，桌面端） | **企业管理后台**（安全管控→Hooks 规则），非本地文件 | **仅 HTTP hook**（type 固定 http，其他类型客户端拒收）；企业旗舰版 qwenwork_premium 12 事件；请求体与 Claude 同构（session_id/hook_event_name） | 复用 claude-code 表（事件名一致） | 未检测到 |

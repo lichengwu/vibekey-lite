@@ -149,7 +149,9 @@ final class AgentHooksWindowController: NSWindowController {
             return
         }
         guard target.usesClaudeJSONContract, let relative = target.settingsRelativePath else {
-            statusLabel.stringValue = "\(target.displayName) 的专用安装器将在后续版本提供（S5）。"
+            // Unreachable for the current target list (qwenwork/dsh handled
+            // above); kept as a defensive guard for future targets.
+            statusLabel.stringValue = "\(target.displayName) 暂不支持本地配置安装。"
             return
         }
         let home = FileManager.default.homeDirectoryForCurrentUser
