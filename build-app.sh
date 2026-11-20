@@ -15,9 +15,9 @@ if [ "$(uname -m)" != "arm64" ]; then
 fi
 
 cd "$PROJECT_DIR"
-swift build -c "$BUILD_CONFIGURATION" --arch arm64
+swift build -c "$BUILD_CONFIGURATION" --arch arm64 --disable-sandbox
 
-BIN_DIR=$(swift build -c "$BUILD_CONFIGURATION" --arch arm64 --show-bin-path)
+BIN_DIR=$(swift build -c "$BUILD_CONFIGURATION" --arch arm64 --disable-sandbox --show-bin-path)
 STAGING_ROOT=$(mktemp -d "$PROJECT_DIR/.build/vibekey-lite-app.XXXXXX")
 STAGING_APP="$STAGING_ROOT/$APP_NAME.app"
 CONTENTS_DIR="$STAGING_APP/Contents"
@@ -29,6 +29,7 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources"
 cp "$BIN_DIR/VibeKeyLite" "$CONTENTS_DIR/MacOS/VibeKeyLite"
+cp "$BIN_DIR/vibekeyctl" "$CONTENTS_DIR/MacOS/vibekeyctl"
 cp "$PROJECT_DIR/AppResources/Info.plist" "$CONTENTS_DIR/Info.plist"
 
 codesign --force --sign "$SIGNING_IDENTITY" --identifier io.github.arumwu.VibeKeyLite "$STAGING_APP"

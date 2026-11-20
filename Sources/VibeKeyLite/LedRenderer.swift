@@ -29,6 +29,7 @@ final class LedRenderer {
     private var flashOn = false
     private var consecutiveFailures = 0
     private var suspended = false
+    private var suspendRetryTimer: Timer?
     private var applying = false
     private var pendingState: VibeKeyAgentState?
     private var enabled = true
@@ -93,7 +94,33 @@ final class LedRenderer {
     func suspendForVendor() {
         suspended = true
         cancelAnimation()
+        suspendRetryTimer?.invalidate()
+        suspendRetryTimer = nil
         logger.notice("LED rendering suspended while Ulanzi Studio runs")
+    }
+
+    /// While suspended for write failures, retry every 10 s. A successful
+    /// GET means the device is back; replay the current state.
+    private func scheduleSuspendRetry() {
+        suspendRetryTimer?.invalidate()
+        let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+            guard let self, self.suspended, self.enabled else { return }
+            self.readState { [weak self] state, error in
+                guard let self, self.suspended else { return }
+                guard error == nil, let state else { return }
+                self.logger.notice("LED device reachable again; resuming")
+                self.deviceState = state
+                self.suspended = false
+                self.consecutiveFailures = 0
+                self.suspendRetryTimer?.invalidate()
+                self.suspendRetryTimer = nil
+                let target = self.pendingState ?? self.currentState
+                self.pendingState = nil
+                self.transition(to: target, force: true)
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        suspendRetryTimer = timer
     }
 
     // MARK: - Transitions
@@ -202,11 +229,13 @@ final class LedRenderer {
             if let error {
                 self.consecutiveFailures += 1
                 self.logger.error("LED write failed (\(self.consecutiveFailures)): \(error.localizedDescription, privacy: .public)")
-                // R7: suspend after three consecutive failures.
+                // R7: suspend after three consecutive failures, then retry
+                // periodically so a sleeping device self-heals on wake.
                 if self.consecutiveFailures >= 3 {
                     self.suspended = true
                     self.cancelAnimation()
-                    self.logger.notice("LED rendering suspended until device wake")
+                    self.scheduleSuspendRetry()
+                    self.logger.notice("LED rendering suspended; will retry every 10s")
                 }
                 return
             }
@@ -232,5 +261,7 @@ final class LedRenderer {
         debounceWorkItem = nil
         attentionWorkItem?.cancel()
         attentionWorkItem = nil
+        suspendRetryTimer?.invalidate()
+        suspendRetryTimer = nil
     }
 }

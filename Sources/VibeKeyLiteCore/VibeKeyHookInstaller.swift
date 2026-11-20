@@ -31,7 +31,7 @@ public enum VibeKeyAgentTarget: String, CaseIterable, Codable, Sendable {
         case .claudeCode: return ".claude/settings.json"
         case .qwenCode: return ".qwen/settings.json"
         case .qoder: return ".qoder/settings.json"
-        case .codebuddy: return ".codebuddy/settings.json"
+        case .codebuddy: return ".workbuddy/settings.json"
         case .codex: return ".codex/hooks.json"
         case .dsh: return ".dsh/profiles/web/cordis.patch.yml"
         case .qwenwork: return nil
@@ -45,7 +45,7 @@ public enum VibeKeyAgentTarget: String, CaseIterable, Codable, Sendable {
         case .claudeCode: return [".claude"]
         case .qwenCode: return [".qwen"]
         case .qoder: return [".qoder"]
-        case .codebuddy: return [".codebuddy"]
+        case .codebuddy: return [".workbuddy", ".codebuddy"]
         case .codex: return [".codex"]
         case .dsh: return [".dsh"]
         case .qwenwork: return []
