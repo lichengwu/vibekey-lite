@@ -10,6 +10,9 @@ enum IOKitHardwareListenerError: LocalizedError {
     case offlineWriteFailed(code: IOReturn)
     case onlinePrerequisiteLost
     case invalidPowerSavingTransition
+    case ledBusy
+    case ledTimeout
+    case ledWriteFailed(code: IOReturn)
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +26,12 @@ enum IOKitHardwareListenerError: LocalizedError {
             "进階手势已停止；AU05 已退回设备原生按键。"
         case .invalidPowerSavingTransition:
             "AU05 省電模式狀态已改变；请重新启动 VibeKey Lite。"
+        case .ledBusy:
+            "AU05 灯效操作正在进行中；请稍后再试。"
+        case .ledTimeout:
+            "AU05 灯效命令超时；设备可能已休眠，按任意键唤醒后重试。"
+        case let .ledWriteFailed(code):
+            "AU05 灯效写入失败（\(Self.hex(code))）。"
         }
     }
 
@@ -53,6 +62,10 @@ final class IOKitHardwareListener {
     private var heartbeatTimer: Timer?
     private var heartbeatFailureReported = false
     private var heartbeatInFlight = false
+    private var pendingLedAcks: [VibeKeyLedControl.Write] = []
+    private var ledWriteCompletion: ((Error?) -> Void)?
+    private var ledReadCompletion: ((VibeKeyLedState?, Error?) -> Void)?
+    private var ledTimeoutWorkItem: DispatchWorkItem?
     private var onlineGeneration: UInt64 = 0
     private var pressedControls: Set<InputControl> = []
     private var connected = false
@@ -253,6 +266,20 @@ final class IOKitHardwareListener {
         ) {
             deliverOnMain { [powerResponseHandler] in
                 powerResponseHandler(powerResponse)
+            }
+            return
+        }
+
+        // Lighting responses (81 0b 88 11/14) only matter while a LED
+        // operation is in flight; decrypt lazily to keep the key path cheap.
+        if (ledReadCompletion != nil || ledWriteCompletion != nil),
+           let plaintext = try? VibeKeyPacketCodec.decryptInputReport(bytes),
+           plaintext.count >= 4,
+           plaintext[0] == 0x81,
+           plaintext[1] == VibeKeyLedControl.commandGroup,
+           plaintext[2] == VibeKeyLedControl.commandID {
+            deliverOnMain { [weak self] in
+                self?.handleLedResponse(plaintext: plaintext)
             }
             return
         }
@@ -474,6 +501,138 @@ final class IOKitHardwareListener {
         heartbeatTimer = nil
         heartbeatInFlight = false
         onlineGeneration &+= 1
+    }
+
+    // MARK: - LED lighting (0x0B/0x88)
+
+    /// Reads the full four-LED state. Completion runs on the main queue.
+    /// Only one LED operation may be in flight at a time.
+    func readLedState(completion: @escaping (VibeKeyLedState?, Error?) -> Void) {
+        guard let device = inputDevice, connected, !parkedForPowerSaving else {
+            deliverOnMain { completion(nil, IOKitHardwareListenerError.onlinePrerequisiteLost) }
+            return
+        }
+        guard ledReadCompletion == nil, ledWriteCompletion == nil else {
+            deliverOnMain { completion(nil, IOKitHardwareListenerError.ledBusy) }
+            return
+        }
+        guard let report = try? VibeKeyLedControl.readReport() else {
+            deliverOnMain { completion(nil, IOKitHardwareListenerError.ledWriteFailed(code: kIOReturnError)) }
+            return
+        }
+        ledReadCompletion = completion
+        armLedTimeout()
+        HIDOutputSerialQueue.queue.async { [logger] in
+            let result = Self.write(report: report, to: device)
+            guard result == kIOReturnSuccess else {
+                logger.error("AU05 LED GET write failed: \(String(format: "0x%08X", UInt32(bitPattern: result)), privacy: .public)")
+                return
+            }
+        }
+    }
+
+    /// Applies the desired lighting state as an ordered full-payload write
+    /// sequence, waiting for each ACK before sending the next frame.
+    /// Completion runs on the main queue.
+    func applyLedState(
+        _ desired: VibeKeyLedState,
+        expected: VibeKeyLedState,
+        completion: @escaping (Error?) -> Void
+    ) {
+        guard let device = inputDevice, connected, !parkedForPowerSaving else {
+            deliverOnMain { completion(IOKitHardwareListenerError.onlinePrerequisiteLost) }
+            return
+        }
+        guard ledReadCompletion == nil, ledWriteCompletion == nil else {
+            deliverOnMain { completion(IOKitHardwareListenerError.ledBusy) }
+            return
+        }
+        let writes: [VibeKeyLedControl.Write]
+        do {
+            writes = try VibeKeyLedControl.writes(desired: desired, expected: expected)
+        } catch {
+            deliverOnMain { completion(error) }
+            return
+        }
+        guard !writes.isEmpty else {
+            deliverOnMain { completion(nil) }
+            return
+        }
+        ledWriteCompletion = completion
+        pendingLedAcks = writes
+        sendNextPendingLedWrite(on: device)
+    }
+
+    private func sendNextPendingLedWrite(on device: IOHIDDevice) {
+        guard let next = pendingLedAcks.first else {
+            finishLedWrite(error: nil)
+            return
+        }
+        guard let report = try? VibeKeyLedControl.setReport(
+            mask: next.mask, focus: next.focus, state: next.state
+        ) else {
+            finishLedWrite(error: IOKitHardwareListenerError.ledWriteFailed(code: kIOReturnError))
+            return
+        }
+        armLedTimeout()
+        HIDOutputSerialQueue.queue.async { [weak self, logger] in
+            let result = Self.write(report: report, to: device)
+            guard result == kIOReturnSuccess else {
+                logger.error("AU05 LED SET write failed: \(String(format: "0x%08X", UInt32(bitPattern: result)), privacy: .public)")
+                self?.deliverOnMain {
+                    self?.finishLedWrite(
+                        error: IOKitHardwareListenerError.ledWriteFailed(code: result)
+                    )
+                }
+                return
+            }
+        }
+    }
+
+    private func armLedTimeout() {
+        ledTimeoutWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if self.ledReadCompletion != nil {
+                let completion = self.ledReadCompletion
+                self.ledReadCompletion = nil
+                completion?(nil, IOKitHardwareListenerError.ledTimeout)
+            }
+            if self.ledWriteCompletion != nil {
+                self.finishLedWrite(error: IOKitHardwareListenerError.ledTimeout)
+            }
+        }
+        ledTimeoutWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: workItem)
+    }
+
+    private func finishLedWrite(error: Error?) {
+        ledTimeoutWorkItem?.cancel()
+        ledTimeoutWorkItem = nil
+        pendingLedAcks.removeAll()
+        let completion = ledWriteCompletion
+        ledWriteCompletion = nil
+        completion?(error)
+    }
+
+    /// Called from receive() when a decrypted frame matches the lighting group.
+    fileprivate func handleLedResponse(plaintext: [UInt8]) {
+        if let completion = ledReadCompletion,
+           let state = VibeKeyLedControl.parseState(fromPlaintext: plaintext) {
+            ledTimeoutWorkItem?.cancel()
+            ledTimeoutWorkItem = nil
+            ledReadCompletion = nil
+            completion(state, nil)
+            return
+        }
+        guard ledWriteCompletion != nil, let expected = pendingLedAcks.first else { return }
+        guard VibeKeyLedControl.isWriteAck(plaintext: plaintext, for: expected) else { return }
+        pendingLedAcks.removeFirst()
+        guard let device = inputDevice else {
+            finishLedWrite(error: IOKitHardwareListenerError.onlinePrerequisiteLost)
+            return
+        }
+        sendNextPendingLedWrite(on: device)
     }
 
     private func sendPowerQueriesAsynchronously() {
