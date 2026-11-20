@@ -139,6 +139,22 @@ S2 的 App 侧 `LedRenderer`（Timer/DispatchQueue 驱动）之外，新增 **`V
 
 仲裁器补 6 条边界测试（120s 恰好过期、同会话覆盖、优先级链、resolve 只读）。**硬件接线待 thinking 灯观察结论后进行**：届时 App 侧 LedRenderer 改为薄壳驱动 Engine，Timer 只负责按时调 tick。
 
+### 7.2 薄壳接线完成 + thinking 单点占位（2026-11-21，commit 4967efa）
+
+**LedRenderer 已改为薄壳**：只持有 50ms tick 泵、HID 写入管道、10s 挂起探活（8fd5ef5 行为保留）；全部渲染规则在 Engine。Listener `applyLedState` 增 `force` 参数：空 diff 时重发激活字段（workTime→workType），对应固件"新写入才渲染"特性。
+
+**thinking 灯位占位策略（决策 b：沿用现状映射 + provisional 标注）**：
+- 唯一接线点 = `VibeKeyLedRenderEngine.thinkingLeds`（当前 `[3]`=旋钮，PROVISIONAL）
+- 理由：早先隔离测试已确认旋钮慢闪正确；六状态序列的"中+下闪"已查明是真实 WorkBuddy hooks 仲裁压制（仲裁本身正确），不是映射错误。候选 a（降级保守灯位）/c（暂不渲染）都会在无新证据时改变已确认正确的行为，弃
+- **灯结论回来后只改这一个常量**：旋钮确认→保持 `[3]`；中+下确认→改 `[1,2]`。Pattern 构造器已支持任意灯位集合，3 条新测试覆盖两种候选的帧契约与亮度翻转单帧性
+
+### 7.3 一键验收（2026-11-21，commit 216d8b0）
+
+`VibeKeyAcceptanceHarness`（Core 纯逻辑）+ `scripts/acceptance.sh`：
+- **offline**：swift test 跑全部自动断言（A1-A6 六状态帧契约 / B1-B3 QwenWork 映射+鉴权+仲裁 / C1-C2 M1 决策+防抖回滚 / D1 基线恢复），mock 设备不碰硬件
+- **live**：自动断言 + 逐状态保持 8 秒供肉眼核对 + 4 个「佐井操作」暂停项（A7 六状态真机核对、B4 QwenWork 安装→后台粘贴→事件到灯→卸载、C3 M1 真机按键回归、D2 收尾），可跳过，绝不自动通过
+- 状态：**代码就绪待灯结论**——live 脚本随时可跑，thinking 灯位以 A7 观察为准
+
 ## 8. 用户配合
 
 - S2/S3 验收需真机看灯（每轮约 2 分钟，沿用"一次一状态、保持住等确认"节奏）
