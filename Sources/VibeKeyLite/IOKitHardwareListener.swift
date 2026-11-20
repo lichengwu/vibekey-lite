@@ -534,9 +534,13 @@ final class IOKitHardwareListener {
     /// Applies the desired lighting state as an ordered full-payload write
     /// sequence, waiting for each ACK before sending the next frame.
     /// Completion runs on the main queue.
+    /// - Parameter force: when true, an empty diff still re-sends the
+    ///   activation fields (workTime + workType per host LED) because the
+    ///   firmware only renders on a *new* write (docs/protocol.md).
     func applyLedState(
         _ desired: VibeKeyLedState,
         expected: VibeKeyLedState,
+        force: Bool = false,
         completion: @escaping (Error?) -> Void
     ) {
         guard let device = inputDevice, connected, !parkedForPowerSaving else {
@@ -547,12 +551,32 @@ final class IOKitHardwareListener {
             deliverOnMain { completion(IOKitHardwareListenerError.ledBusy) }
             return
         }
-        let writes: [VibeKeyLedControl.Write]
+        var writes: [VibeKeyLedControl.Write]
         do {
             writes = try VibeKeyLedControl.writes(desired: desired, expected: expected)
         } catch {
             deliverOnMain { completion(error) }
             return
+        }
+        if writes.isEmpty, force {
+            // Re-trigger rendering: workTime first, workType last (activation).
+            for led in 1...3 {
+                writes.append(VibeKeyLedControl.Write(
+                    mask: VibeKeyLedControl.FieldMask.workTime,
+                    focus: UInt8(led), state: desired
+                ))
+            }
+            if desired.mode != expected.mode {
+                writes.insert(VibeKeyLedControl.Write(
+                    mask: VibeKeyLedControl.FieldMask.mode, focus: 0, state: desired
+                ), at: 0)
+            }
+            for led in 1...3 {
+                writes.append(VibeKeyLedControl.Write(
+                    mask: VibeKeyLedControl.FieldMask.workType,
+                    focus: UInt8(led), state: desired
+                ))
+            }
         }
         guard !writes.isEmpty else {
             deliverOnMain { completion(nil) }

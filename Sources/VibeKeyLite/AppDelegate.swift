@@ -166,12 +166,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureLedRendering() {
         let renderer = LedRenderer(
-            apply: { [weak self] desired, expected, completion in
+            apply: { [weak self] desired, expected, force, completion in
                 guard let listener = self?.hardwareListener, self?.listenerActive == true else {
                     completion(IOKitHardwareListenerError.onlinePrerequisiteLost)
                     return
                 }
-                listener.applyLedState(desired, expected: expected, completion: completion)
+                listener.applyLedState(desired, expected: expected, force: force, completion: completion)
             },
             readState: { [weak self] completion in
                 guard let listener = self?.hardwareListener, self?.listenerActive == true else {

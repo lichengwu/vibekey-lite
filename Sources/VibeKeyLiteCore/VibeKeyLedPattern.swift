@@ -134,9 +134,18 @@ public struct VibeKeyLedPattern: Equatable, Sendable {
 
     /// Builds the pattern for a state. `voiceKeyTuple` is the LED 0 tuple
     /// read back from the device (never modified by the host).
+    ///
+    /// `thinkingLeds` selects which LEDs carry the thinking slow blink.
+    /// **Single wiring point for the pending thinking-LED observation**:
+    /// the default `[3]` (knob) is PROVISIONAL — the 2026-11-20 clean
+    /// sequence showed middle+bottom blinking instead, while the earlier
+    /// isolated test confirmed the knob. Until the user's isolated
+    /// observation settles it, callers keep the default; once settled,
+    /// change ONLY `VibeKeyLedRenderEngine.thinkingLeds` (one constant).
     public static func pattern(
         for state: VibeKeyAgentState,
-        voiceKeyTuple: VibeKeyLedTuple = VibeKeyLedState.baseline.leds[0]
+        voiceKeyTuple: VibeKeyLedTuple = VibeKeyLedState.baseline.leds[0],
+        thinkingLeds: [Int] = [3]
     ) -> VibeKeyLedPattern {
         let off = VibeKeyLedTuple.baselineOff
         func table(_ l1: VibeKeyLedTuple, _ l2: VibeKeyLedTuple, _ l3: VibeKeyLedTuple,
@@ -148,10 +157,15 @@ public struct VibeKeyLedPattern: Equatable, Sendable {
         case .idle, .sleeping, .off:
             return VibeKeyLedPattern(base: table(off, off, off))
         case .thinking:
-            // Knob slow blink 1.2 s: solid wt=1, brightness toggles 15/0.
+            // Slow blink 1.2 s: solid wt=1, brightness toggles 15/0 (R1).
+            // Lit LEDs come from thinkingLeds; all others stay off.
+            var tuples: [VibeKeyLedTuple] = [off, off, off]
+            for led in thinkingLeds where tuples.indices.contains(led - 1) {
+                tuples[led - 1] = tuple(solid: 15)
+            }
             return VibeKeyLedPattern(
-                base: table(off, off, tuple(solid: 15)),
-                blinkPeriod: 1.2, blinkLeds: [3]
+                base: table(tuples[0], tuples[1], tuples[2]),
+                blinkPeriod: 1.2, blinkLeds: thinkingLeds
             )
         case .working:
             return VibeKeyLedPattern(base: table(off, off, tuple(solid: 7)))

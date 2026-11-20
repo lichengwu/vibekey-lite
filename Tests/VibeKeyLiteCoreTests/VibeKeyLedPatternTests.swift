@@ -137,4 +137,46 @@ final class VibeKeyLedPatternTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Thinking LED placement (provisional wiring point)
+
+    func testThinkingDefaultIsKnobProvisional() {
+        // The Engine's single wiring point defaults to the knob until the
+        // user's isolated observation settles the question.
+        XCTAssertEqual(VibeKeyLedRenderEngine.thinkingLeds, [3])
+        let pattern = VibeKeyLedPattern.pattern(for: .thinking)
+        XCTAssertEqual(pattern.blinkLeds, [3])
+        XCTAssertEqual(pattern.base.leds[3].alwaysOnBrightness, 15)
+        XCTAssertEqual(pattern.base.leds[1].workType, 0)
+        XCTAssertEqual(pattern.base.leds[2].workType, 0)
+    }
+
+    func testThinkingAlternativePlacementMiddleBottom() {
+        // If the observation confirms middle+bottom, ONLY the constant
+        // changes; the pattern builder already supports any LED set.
+        let pattern = VibeKeyLedPattern.pattern(for: .thinking, thinkingLeds: [1, 2])
+        XCTAssertEqual(pattern.blinkLeds, [1, 2])
+        XCTAssertEqual(pattern.base.leds[1].alwaysOnBrightness, 15)
+        XCTAssertEqual(pattern.base.leds[2].alwaysOnBrightness, 15)
+        XCTAssertEqual(pattern.base.leds[3].workType, 0)
+        let lit = pattern.table(atTick: 0)
+        let dark = pattern.table(atTick: 1)
+        XCTAssertEqual(lit.leds[1].alwaysOnBrightness, 15)
+        XCTAssertEqual(dark.leds[1].alwaysOnBrightness, 0)
+        XCTAssertEqual(dark.leds[2].alwaysOnBrightness, 0)
+        XCTAssertEqual(dark.leds[3].workType, 0, "knob stays off in alternative")
+    }
+
+    func testThinkingAlternativeStillBrightnessOnlyBlink() throws {
+        let pattern = VibeKeyLedPattern.pattern(for: .thinking, thinkingLeds: [1, 2])
+        let lit = pattern.table(atTick: 0)
+        let dark = pattern.table(atTick: 1)
+        let writes = try VibeKeyLedControl.writes(desired: dark, expected: lit)
+        XCTAssertEqual(writes.count, 2, "one brightness frame per blinking LED")
+        XCTAssertTrue(writes.allSatisfy {
+            $0.mask == VibeKeyLedControl.FieldMask.alwaysOnBrightness
+        })
+        try VibeKeyLedControl.validate(lit)
+        try VibeKeyLedControl.validate(dark)
+    }
 }
