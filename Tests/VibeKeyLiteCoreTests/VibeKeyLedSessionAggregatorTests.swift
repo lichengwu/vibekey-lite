@@ -33,6 +33,52 @@ final class VibeKeyLedSessionAggregatorTests: XCTestCase {
         XCTAssertEqual(aggregator.record(session: "b", state: .working, now: 1), .error)
         XCTAssertEqual(aggregator.record(session: "c", state: .notification, now: 2), .notification)
     }
+
+    func testStaleBoundaryIsExclusive() {
+        var aggregator = VibeKeyLedSessionAggregator(staleInterval: 120)
+        _ = aggregator.record(session: "a", state: .working, now: 0)
+        // Exactly at the interval the session is stale (strict <).
+        XCTAssertEqual(aggregator.resolvedState(now: 120), .idle)
+        XCTAssertEqual(aggregator.resolvedState(now: 119.9), .working)
+    }
+
+    func testSameSessionUpdateReplacesState() {
+        var aggregator = VibeKeyLedSessionAggregator()
+        _ = aggregator.record(session: "a", state: .notification, now: 0)
+        XCTAssertEqual(aggregator.record(session: "a", state: .idle, now: 1), .idle)
+        XCTAssertEqual(aggregator.activeSessionCount, 1)
+    }
+
+    func testSweepingBeatsThinkingAndWorking() {
+        var aggregator = VibeKeyLedSessionAggregator()
+        _ = aggregator.record(session: "a", state: .thinking, now: 0)
+        _ = aggregator.record(session: "b", state: .working, now: 0)
+        XCTAssertEqual(aggregator.record(session: "c", state: .sweeping, now: 1), .sweeping)
+    }
+
+    func testAttentionBeatsIdleButLosesToWorking() {
+        var aggregator = VibeKeyLedSessionAggregator()
+        _ = aggregator.record(session: "a", state: .attention, now: 0)
+        XCTAssertEqual(aggregator.record(session: "b", state: .idle, now: 1), .attention)
+        XCTAssertEqual(aggregator.record(session: "c", state: .working, now: 2), .working)
+    }
+
+    func testPruneRemovesOnlyStaleAndKeepsFreshWinner() {
+        var aggregator = VibeKeyLedSessionAggregator(staleInterval: 120)
+        _ = aggregator.record(session: "old", state: .notification, now: 0)
+        _ = aggregator.record(session: "fresh", state: .thinking, now: 100)
+        XCTAssertEqual(aggregator.prune(now: 150), .thinking)
+        XCTAssertEqual(aggregator.activeSessionCount, 1)
+    }
+
+    func testResolvedStateDoesNotMutateSessions() {
+        var aggregator = VibeKeyLedSessionAggregator(staleInterval: 120)
+        _ = aggregator.record(session: "a", state: .working, now: 0)
+        _ = aggregator.resolvedState(now: 500) // stale but not pruned
+        XCTAssertEqual(aggregator.activeSessionCount, 1,
+                       "resolvedState must be a read-only view")
+        XCTAssertEqual(aggregator.prune(now: 500), .idle)
+    }
 }
 
 final class VibeKeyCodexAndDshInstallerTests: XCTestCase {
