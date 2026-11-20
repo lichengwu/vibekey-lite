@@ -142,6 +142,9 @@ VIBEKEY_SIGNING_IDENTITY="Apple Development: Your Name (TEAMID)" ./build-app.sh
 
 專案使用 [MIT License](LICENSE)。協定研究見 [docs/protocol.md](docs/protocol.md)。
 
+**自助操作手冊**：[docs/user-guide.md](docs/user-guide.md)（安裝替換、config.json 全字段、映射表、驗收腳本、hooks 流程、故障排查）。
+**交付接線清單**：[docs/delivery-checklist.md](docs/delivery-checklist.md)（燈觀察結論回來後照著跑，每步標注放行點）。
+
 ---
 
 ## English
@@ -267,3 +270,6 @@ All six mappings are validated before a write begins. A physical disconnect duri
 This is an independent, unofficial compatibility implementation. It does not contain, copy, load, or link against Ulanzi Studio's `kwdm.dylib` or other proprietary files.
 
 Licensed under the [MIT License](LICENSE). See [docs/protocol.md](docs/protocol.md) for protocol notes.
+
+**Self-service manual**: [docs/user-guide.md](docs/user-guide.md) (install/replace, full config.json reference, mapping table, acceptance script, hooks flow, troubleshooting).
+**Delivery checklist**: [docs/delivery-checklist.md](docs/delivery-checklist.md) (run after the LED observation lands; each step marks who must approve).
