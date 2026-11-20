@@ -51,6 +51,67 @@ Fn 不是一般 USB HID 按鍵，AU05 韌體無法把它保存成離線快捷鍵
 ~/Library/Application Support/VibeKey Lite/config.json
 ```
 
+## 按前台 App 自動切組（M1）
+
+在 config.json 加入 `appProfileMapping`（bundleID → `"a"`=AI／`"b"`=系統），前台 App 命中映射且與目前組別不同時自動切換；未命中的 App 保持目前組別，不會來回跳。預設為空（功能關閉）。
+
+判斷標準：**AI 對話／編程類 App → AI 組（"a"）；其餘不映射**（保持當前組，日常 App 自然落在系統組）。以下為本機實測 bundleID 的推薦示例（2026-11-21，mdls 查證）：
+
+```json
+{
+  "appProfileMapping": {
+    "com.tencent.workbuddy.mac": "a",
+    "com.apple.Terminal": "a",
+    "com.apple.dt.Xcode": "a",
+    "com.qoder.QoderWake.MenuBar": "a"
+  }
+}
+```
+
+> 注意：`com.qoder.QoderWake.MenuBar` 是 QoderWake 選單列輔助 App；若你日常用的是 Qoder 主編輯器，請用下方命令查它的實際 bundleID 再映射。VS Code／Cursor／Claude／ChatGPT 桌面端本機未安裝，裝好後同样查 ID 加入即可。
+
+- 啟動時會讀一次前台 App；App 切換有 200ms 防抖，⌘Tab 風暴不會連環切。
+- 自動切組只切 App 內設定，不寫裝置六格；「離線備用」不受影響。
+- bundleID 查詢：`mdls -name kMDItemCFBundleIdentifier -raw /Applications/某App.app` 或 `osascript -e 'id of app "Safari"'`。
+
+## Agent 狀態燈效（M2）
+
+AU05 的三顆燈（中鍵、下鍵、旋鈕）可顯示 coding Agent 的工作狀態；語音鍵燈由韌體自驅（按鍵回饋），不參與。
+
+| 狀態 | 燈效 |
+| --- | --- |
+| idle／sleeping | 全滅 |
+| thinking | 旋鈕慢閃（1.2s） |
+| working | 旋鈕常亮 |
+| attention（回合完成） | 中鍵亮 10 秒自動滅 |
+| notification（需審批） | 中＋下快閃（0.6s），最高優先 |
+| error | 全燈全亮閃 3 次後恢復前態 |
+| sweeping（壓縮上下文） | 三燈流水（0.5s） |
+
+### vibekeyctl 命令列
+
+```sh
+CTL="/Applications/VibeKey Lite.app/Contents/MacOS/vibekeyctl"
+"$CTL" led --state working        # 手動設狀態（測試／腳本）
+"$CTL" led --restore              # 恢復出廠燈效基線
+"$CTL" status                     # 查詢目前狀態
+"$CTL" detect                     # 列出各 Agent 安裝／接入狀態
+"$CTL" install-hooks --agent qoder
+"$CTL" uninstall-hooks --agent qoder
+```
+
+### 一鍵接入 Agent
+
+選單列設定 →「Agent 燈效接入…」：列表顯示每個 Agent 的檢測狀態，點「安裝」自動備份原配置、只新增帶 `vibekey-lite` 標記的 hooks（你已有的 hooks 原樣保留），點「卸載」只移除標記條目。**未檢測到軟體會提示先安裝，不會寫任何配置。**
+
+支援：Claude Code、Qwen Code、Qoder、CodeBuddy/WorkBuddy（同構 JSON 安裝器）；Codex（hooks.json＋config.toml features 開關，需在 Codex 內 `/hooks` 批准）；DeepSeek Harness（cordis.patch.yml）；千問辦公 QwenWork（企業旗艦版，HTTP hooks，App 內複製配置到企業後台粘貼）。
+
+### 多會話仲裁
+
+多個 Agent 會話同時跑時，按優先級顯示最高狀態：需審批 > 出錯 > 壓縮 > 思考 > 幹活 > 完成 > 空閒。120 秒無事件的會話自動剔除。Ulanzi Studio 開啟時燈效掛起，退出後自動恢復。
+
+燈效協議細節見 [docs/protocol.md](docs/protocol.md)，設計見 [docs/m2-led-design.md](docs/m2-led-design.md)。
+
 ## 建置
 
 需求：Apple Silicon Mac、macOS 13 或更新版本、Xcode Command Line Tools。
@@ -131,6 +192,49 @@ Configuration is stored at:
 ```text
 ~/Library/Application Support/VibeKey Lite/config.json
 ```
+
+### Auto profile switching by frontmost app (M1)
+
+Add `appProfileMapping` (bundleID → `"a"`=AI / `"b"`=System) to config.json. When the frontmost app matches a mapping and differs from the active profile, the app switches automatically; unmapped apps keep the current profile. Default is empty (feature off).
+
+Rule of thumb: **AI chat / coding apps → AI profile ("a"); leave everything else unmapped**. Recommended example with bundleIDs verified on this machine (2026-11-21, via mdls):
+
+```json
+{
+  "appProfileMapping": {
+    "com.tencent.workbuddy.mac": "a",
+    "com.apple.Terminal": "a",
+    "com.apple.dt.Xcode": "a",
+    "com.qoder.QoderWake.MenuBar": "a"
+  }
+}
+```
+
+> Note: `com.qoder.QoderWake.MenuBar` is the QoderWake menu-bar helper; if you use the main Qoder editor, look up its real bundleID first. VS Code / Cursor / Claude / ChatGPT desktop apps are not installed here — add them the same way once installed.
+
+The frontmost app is read once at launch; activation events are debounced by 200 ms. Auto-switching only changes the host-side selection and never writes the device's six slots. Find a bundleID with `mdls -name kMDItemCFBundleIdentifier -raw /Applications/SomeApp.app` or `osascript -e 'id of app "Safari"'`.
+
+### Agent status lights (M2)
+
+Three AU05 LEDs (middle key, bottom key, knob) show coding-agent state; the voice-key LED is firmware-driven key feedback and does not participate.
+
+| State | Light pattern |
+| --- | --- |
+| idle / sleeping | all off |
+| thinking | knob slow blink (1.2 s) |
+| working | knob solid |
+| attention (turn done) | middle key lit 10 s, auto-off |
+| notification (approval needed) | middle + bottom fast blink (0.6 s), highest priority |
+| error | all LEDs flash 3×, then restore previous state |
+| sweeping (compaction) | three-LED chase (0.5 s) |
+
+CLI: `vibekeyctl led --state <state> | --restore`, `status`, `detect`, `install-hooks --agent <id>`, `uninstall-hooks --agent <id>` (binary inside the app bundle at `Contents/MacOS/vibekeyctl`).
+
+One-click agent onboarding: menu bar settings → "Agent 灯效接入…" lists each agent with detection status; Install backs up the existing config and additively merges hooks tagged `vibekey-lite`; Uninstall removes only tagged entries. Absent software is never configured — you are prompted to install it first. Supported: Claude Code, Qwen Code, Qoder, CodeBuddy/WorkBuddy (shared JSON installer); Codex (hooks.json + config.toml feature flag, approve via `/hooks`); DeepSeek Harness (cordis.patch.yml); QwenWork (enterprise edition, HTTP hooks via console paste guide).
+
+Multi-session arbitration shows the highest-priority state (approval > error > compaction > thinking > working > done > idle); sessions silent for 120 s are dropped. Lights suspend while Ulanzi Studio runs and resume when it exits.
+
+See [docs/protocol.md](docs/protocol.md) and [docs/m2-led-design.md](docs/m2-led-design.md).
 
 ### Build
 
