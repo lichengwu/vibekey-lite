@@ -74,10 +74,10 @@ Codex 走 config.toml（官方 ustudio-cli 已有先例）。DSH 走 cordis.patc
 | DeepSeek Harness (DSH) | `~/.dsh/profiles/<p>/cordis.patch.yml` | dsh-hooks 插件：`on: turn/end / tool/call / approval/asked`，`run:` 命令，stdin context JSON | turn/end(completed)→attention、tool/call→working、approval/asked→notification、agent/error→error | 未装 |
 | **千问办公 QwenWork**（阿里，桌面端） | **企业管理后台**（安全管控→Hooks 规则），非本地文件 | **仅 HTTP hook**（type 固定 http，其他类型客户端拒收）；企业旗舰版 qwenwork_premium 12 事件；请求体与 Claude 同构（session_id/hook_event_name） | 复用 claude-code 表（事件名一致） | 未检测到 |
 
-**QwenWork 特殊接入（官网核实 2026-11-20）**：它不能写本地配置、不能执行本地命令，只能 POST 到 HTTP 地址。方案：
-- Lite 内起 **loopback HTTP 监听**（127.0.0.1:27950 `/qwenwork`，仅回环、随机 bearer token），收到事件 POST → 复用同一状态映射 → 渲染灯效 → 立即返回 `{}`（不干预企业流程）
-- App 内「安装」按钮 = 启动监听 + 生成各事件的 Hook 组 JSON（url 指向本机监听）+ **一键复制** + 引导文案"到企业管理后台 安全管控→Hooks 规则 粘贴"；「卸载」= 停止监听 + 提示到后台清空配置
-- 个人版无 hooks 能力 → 检测不到企业版时明确提示"千问办公 hooks 仅企业旗舰版支持"
+**QwenWork 特殊接入（官网核实 2026-11-20；已实现 2026-11-21，commits 8199174 / 8ab9239）**：它不能写本地配置、不能执行本地命令，只能 POST 到 HTTP 地址。方案：
+- Lite 内起 **loopback HTTP 监听**（127.0.0.1:27950 `/qwenwork`，仅回环、随机 bearer token），收到事件 POST → 复用同一状态映射 → 渲染灯效 → 立即返回 `{}`（不干预企业流程）。**已实现**：Core 纯逻辑 `VibeKeyQwenWorkHookHandler`（token 校验 401/路由 404/405/坏 JSON 与未知事件容错/仲裁组合，19 测）+ App 壳 `QwenWorkHookListener`（NWListener 仅 loopback、HTTP 帧解析、随机高端口集成测试 5 条）
+- App 内「安装」按钮 = 启动监听 + 生成各事件的 Hook 组 JSON（url 指向本机监听、带 Authorization 头）+ **一键复制** + 引导文案"到企业管理后台 安全管控→Hooks 规则 粘贴"；「卸载」= 停止监听 + 提示到后台清空配置。**监听默认不启动**，点安装才起；App 退出自动停
+- 个人版无 hooks 能力 → 明确提示"千问办公 hooks 仅企业旗舰版支持"（Core 常量，安装引导内展示）
 - 官方文档明示 127.0.0.1 指客户端本机——单机自用场景正好成立
 
 预留（官方 mappings.js 已有表，安装器后续按同构扩展）：gemini-cli、cursor-agent、kiro-cli、kimi-cli、copilot-cli。
