@@ -6,6 +6,13 @@ import VibeKeyLiteCore
 /// configured — the user is told to install it first (user requirement
 /// 2026-11-20). QwenWork uses the enterprise-console HTTP flow.
 final class AgentHooksWindowController: NSWindowController {
+    /// Injected by AppDelegate: start/stop the loopback listener and query
+    /// its running state. The window never owns the socket itself.
+    var onStartQwenWorkListener: (() -> String?)?   // returns token on success
+    var onStopQwenWorkListener: (() -> Void)?
+    var isQwenWorkListenerRunning: (() -> Bool)?
+    var qwenWorkSnippets: (() -> [String: String])?
+
     private let tableView = NSTableView()
     private var detections: [VibeKeyHookInstaller.Detection] = []
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
@@ -103,7 +110,7 @@ final class AgentHooksWindowController: NSWindowController {
                 ) || FileManager.default.fileExists(
                     atPath: NSHomeDirectory() + "/Applications/QwenWork.app"
                 )
-                detection.installed = qwenWorkListenerActive
+                detection.installed = isQwenWorkListenerRunning?() ?? qwenWorkListenerActive
             }
             return detection
         }
@@ -180,8 +187,9 @@ final class AgentHooksWindowController: NSWindowController {
 
     private func performUninstall(_ target: VibeKeyAgentTarget) {
         if target == .qwenwork {
+            onStopQwenWorkListener?()
             qwenWorkListenerActive = false
-            statusLabel.stringValue = "已停止本机监听。请到企业管理后台清空对应 Hooks 规则。"
+            statusLabel.stringValue = "已停止本机监听。请到企业管理后台（安全管控 → Hooks 规则）清空对应事件的 vibekey 配置。"
             refresh()
             return
         }
@@ -249,30 +257,40 @@ final class AgentHooksWindowController: NSWindowController {
     }
 
     private func showQwenWorkGuide() {
-        // Generate the per-event hook JSON for the enterprise console.
-        var snippets: [String] = []
-        for event in ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "Notification", "PreCompact"] {
-            snippets.append("""
-            // \(event)
-            [{"hooks":[{"type":"http","url":"http://127.0.0.1:27950/qwenwork","timeout":3}]}]
-            """)
+        // Install = start the loopback listener, then hand over console JSON.
+        guard let token = onStartQwenWorkListener?() else {
+            let alert = NSAlert()
+            alert.messageText = "千问办公监听启动失败"
+            alert.informativeText = "无法在 127.0.0.1:27950 启动本机监听（端口可能被占用）。请关闭占用程序后重试。"
+            alert.runModal()
+            return
         }
+        qwenWorkListenerActive = true
+        let snippets = qwenWorkSnippets?() ?? VibeKeyQwenWorkHookHandler.consoleSnippets(token: token)
+        let text = VibeKeyQwenWorkHookHandler.wiredEvents
+            .compactMap { event in snippets[event].map { "// \(event)\n\($0)" } }
+            .joined(separator: "\n\n")
         let alert = NSAlert()
         alert.messageText = "千问办公接入（企业旗舰版）"
         alert.informativeText = """
-        千问办公的 hooks 只能在企业管理后台配置（组织与安全 → 安全管控 → Hooks 规则），且仅支持 HTTP 类型。
+        本机监听已启动（127.0.0.1:27950/qwenwork，仅回环）。
 
-        点「复制配置」后，到后台为下列事件分别粘贴：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、Stop、Notification、PreCompact。
+        千问办公的 hooks 只能在企业管理后台配置（组织与安全 → 安全管控 → Hooks 规则），且仅支持 HTTP 类型。点「复制配置」后，到后台为下列事件分别粘贴：SessionStart、UserPromptSubmit、PreToolUse、PostToolUse、Stop、Notification、PreCompact。
 
-        注意：本机监听服务将在后续版本随 App 常驻启动；当前版本请先完成后台配置。
+        \(VibeKeyQwenWorkHookHandler.personalEditionNotice)
+
+        卸载时监听会停止，并请同步到后台清空对应规则。
         """
         alert.addButton(withTitle: "复制配置")
         alert.addButton(withTitle: "关闭")
         if alert.runModal() == .alertFirstButtonReturn {
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(snippets.joined(separator: "\n\n"), forType: .string)
-            statusLabel.stringValue = "已复制千问办公 Hooks 配置，请到企业管理后台粘贴。"
+            NSPasteboard.general.setString(text, forType: .string)
+            statusLabel.stringValue = "监听已启动，配置已复制；请到企业管理后台粘贴。"
+        } else {
+            statusLabel.stringValue = "监听已启动；可随时点「复制配置」重新获取后台配置。"
         }
+        refresh()
     }
 }
 

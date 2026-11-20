@@ -25,6 +25,10 @@ let package = Package(
         .testTarget(
             name: "VibeKeyLiteCoreTests",
             dependencies: ["VibeKeyLiteCore"]
+        ),
+        .testTarget(
+            name: "VibeKeyLiteAppTests",
+            dependencies: ["VibeKeyLite"]
         )
     ]
 )

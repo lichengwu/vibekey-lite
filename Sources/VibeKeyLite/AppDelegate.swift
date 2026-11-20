@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var ledRenderer: LedRenderer?
     private var ctlServer: CtlSocketServer?
     private var agentHooksWindowController: AgentHooksWindowController?
+    private var qwenWorkListener: QwenWorkHookListener?
     private var ledSessionAggregator = VibeKeyLedSessionAggregator()
     private var ledStaleTimer: Timer?
     private var appProfileDebounceWorkItem: DispatchWorkItem?
@@ -95,6 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         actionPerformer.releaseAll()
         ctlServer?.stop()
         ctlServer = nil
+        qwenWorkListener?.stop()
+        qwenWorkListener = nil
         ledStaleTimer?.invalidate()
         ledStaleTimer = nil
         ledRenderer?.shutdown()
@@ -115,11 +118,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showAgentHooksWindow() {
         if agentHooksWindowController == nil {
-            agentHooksWindowController = AgentHooksWindowController()
+            let controller = AgentHooksWindowController()
+            controller.onStartQwenWorkListener = { [weak self] in
+                self?.startQwenWorkListener()
+            }
+            controller.onStopQwenWorkListener = { [weak self] in
+                self?.qwenWorkListener?.stop()
+                self?.qwenWorkListener = nil
+            }
+            controller.isQwenWorkListenerRunning = { [weak self] in
+                self?.qwenWorkListener?.isRunning ?? false
+            }
+            controller.qwenWorkSnippets = { [weak self] in
+                guard let token = self?.qwenWorkListener?.token else { return [:] }
+                let port = self?.qwenWorkListener?.port ?? VibeKeyQwenWorkHookHandler.defaultPort
+                return VibeKeyQwenWorkHookHandler.consoleSnippets(port: port, token: token)
+            }
+            agentHooksWindowController = controller
         }
         agentHooksWindowController?.showWindow(nil)
         agentHooksWindowController?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Starts the loopback listener on demand (install flow only; never at
+    /// launch). Returns the bearer token on success, nil on failure.
+    private func startQwenWorkListener() -> String? {
+        if let existing = qwenWorkListener, existing.isRunning {
+            return existing.token
+        }
+        let listener = QwenWorkHookListener { [weak self] state in
+            guard let self, let renderer = self.ledRenderer else { return }
+            let resolved = self.ledSessionAggregator.record(
+                session: "qwenwork", state: state, now: Date().timeIntervalSince1970
+            )
+            renderer.request(resolved)
+        }
+        do {
+            try listener.start()
+            qwenWorkListener = listener
+            return listener.token
+        } catch {
+            logger.error("QwenWork listener start failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func configureLedRendering() {
