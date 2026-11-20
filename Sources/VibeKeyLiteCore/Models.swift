@@ -303,19 +303,24 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var profileA: ProfileConfiguration
     public var profileB: ProfileConfiguration
     public var needsHardwareSync: Bool
+    /// M1: frontmost-app bundleID → profile. Empty = feature off.
+    /// Unmapped apps keep the current profile (no fallback switching).
+    public var appProfileMapping: [String: ProfileID]
 
     public init(
         activeProfile: ProfileID = .a,
         offlineProfile: ProfileID? = nil,
         profileA: ProfileConfiguration = .init(),
         profileB: ProfileConfiguration = .init(),
-        needsHardwareSync: Bool = true
+        needsHardwareSync: Bool = true,
+        appProfileMapping: [String: ProfileID] = [:]
     ) {
         self.activeProfile = activeProfile
         self.offlineProfile = offlineProfile
         self.profileA = profileA
         self.profileB = profileB
         self.needsHardwareSync = needsHardwareSync
+        self.appProfileMapping = appProfileMapping
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -324,6 +329,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case profileA
         case profileB
         case needsHardwareSync
+        case appProfileMapping
     }
 
     public init(from decoder: Decoder) throws {
@@ -341,6 +347,11 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         // An offline profile is proof that a complete six-slot native backup
         // finished. Never trust an old/partial "false" marker without it.
         needsHardwareSync = offlineProfile == nil ? true : decodedNeedsHardwareSync
+        // Configs written before M1 simply have no mapping: feature stays off.
+        appProfileMapping = try container.decodeIfPresent(
+            [String: ProfileID].self,
+            forKey: .appProfileMapping
+        ) ?? [:]
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -350,6 +361,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         try container.encode(profileA, forKey: .profileA)
         try container.encode(profileB, forKey: .profileB)
         try container.encode(needsHardwareSync, forKey: .needsHardwareSync)
+        try container.encode(appProfileMapping, forKey: .appProfileMapping)
     }
 
     public subscript(profile: ProfileID) -> ProfileConfiguration {

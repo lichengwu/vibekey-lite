@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var agentHooksWindowController: AgentHooksWindowController?
     private var ledSessionAggregator = VibeKeyLedSessionAggregator()
     private var ledStaleTimer: Timer?
+    private var appProfileDebounceWorkItem: DispatchWorkItem?
+    private var appActivationDebouncer = VibeKeyAppActivationDebouncer()
     private var workspaceObservers: [NSObjectProtocol] = []
     private let actionPerformer = ActionPerformer()
     private var knobPressStateMachine = KnobPressStateMachine()
@@ -60,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureHardwareListener()
         configureLedRendering()
         configureLifecycleObservers()
+        // M1: align the profile with whatever app is already frontmost at launch.
+        applyAppProfileSwitch(
+            bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        )
         refreshUI()
 
         if needsHardwareSync {
@@ -416,6 +422,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard Self.isVendorApplication(notification) else { return }
             self?.resumeEnhancedModeIfSafe()
             self?.ledRenderer?.resume()
+        })
+
+        // M1: auto-switch profile by frontmost app (config appProfileMapping).
+        workspaceObservers.append(center.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication else { return }
+            self?.scheduleAppProfileSwitch(bundleID: app.bundleIdentifier)
         })
     }
 
@@ -871,6 +888,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "Profile switched to \(self.configuration.activeProfile.rawValue, privacy: .public)"
         )
         notice = "已切换到「\(configuration.activeProfile.displayName)」；离线备用未更动。"
+        refreshUI()
+    }
+
+    // MARK: - M1 frontmost-app profile switching
+
+    /// 200 ms debounce absorbs ⌘Tab / Mission Control activation storms.
+    /// The Core debouncer guarantees only the latest activation survives.
+    private func scheduleAppProfileSwitch(bundleID: String?) {
+        appProfileDebounceWorkItem?.cancel()
+        let token = appActivationDebouncer.activate(bundleID)
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  let settled = self.appActivationDebouncer.fire(generation: token)
+            else { return }
+            self.applyAppProfileSwitch(bundleID: settled)
+        }
+        appProfileDebounceWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+    }
+
+    private func applyAppProfileSwitch(bundleID: String?) {
+        guard configurationReady, !hardwareSyncInProgress else { return }
+        guard let target = VibeKeyAppProfileSwitcher.targetProfile(
+            frontmostBundleID: bundleID,
+            mapping: configuration.appProfileMapping,
+            currentProfile: configuration.activeProfile
+        ) else { return }
+        let previousConfiguration = configuration
+        actionPerformer.releaseAll()
+        let settled = VibeKeyAppProfileSwitcher.applySwitch(
+            target: target,
+            currentProfile: configuration.activeProfile
+        ) { [weak self] candidate in
+            guard let self else { return false }
+            self.configuration.activeProfile = candidate
+            return self.persistConfiguration()
+        }
+        guard settled == target else {
+            configuration = previousConfiguration
+            refreshUI()
+            return
+        }
+        logger.notice(
+            "Profile auto-switched to \(target.rawValue, privacy: .public) for \(bundleID ?? "?", privacy: .public)"
+        )
+        notice = "已按前台 App 切换到「\(target.displayName)」；离线备用未更动。"
         refreshUI()
     }
 
