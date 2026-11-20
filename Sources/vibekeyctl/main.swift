@@ -106,8 +106,11 @@ func requireTarget() -> VibeKeyAgentTarget {
 
 func installHooks(uninstall: Bool) {
     let target = requireTarget()
-    guard target.hookDialect == "claude", let relative = target.settingsRelativePath else {
-        fail("\(target.displayName) 使用特殊接入流程（App 内操作），CLI 暂不支持。")
+    guard target != .qwenwork else {
+        fail("\(target.displayName) 使用企业后台 HTTP 接入流程（App 内操作），CLI 不支持。")
+    }
+    guard let relative = target.settingsRelativePath else {
+        fail("\(target.displayName) 无本地配置路径。")
     }
     let home = FileManager.default.homeDirectoryForCurrentUser
     let detection = VibeKeyHookInstaller.detect(
@@ -120,27 +123,64 @@ func installHooks(uninstall: Bool) {
         fail("未检测到 \(target.displayName)。请先安装该软件（\(target.downloadURL)），再回来接入灯效。")
     }
     let settingsURL = home.appendingPathComponent(relative)
+
+    if target == .dsh {
+        let existing = (try? String(contentsOf: settingsURL, encoding: .utf8))
+        do {
+            if uninstall {
+                guard let existing,
+                      let unmerged = VibeKeyHookInstaller.unmergedDshPatch(existing: existing) else {
+                    print("未找到 vibekey-lite 条目，无需卸载。")
+                    return
+                }
+                try backupAndWrite(existing: Data(existing.utf8), new: Data(unmerged.utf8), at: settingsURL)
+                print("已卸载 DSH 灯效 hooks。")
+            } else {
+                let merged = VibeKeyHookInstaller.mergedDshPatch(existing: existing, ctlPath: ctlPathForHooks())
+                try backupAndWrite(existing: existing.map { Data($0.utf8) }, new: Data(merged.utf8), at: settingsURL)
+                let written = try String(contentsOf: settingsURL, encoding: .utf8)
+                guard written.contains("- id: \(VibeKeyHookInstaller.dshMarkerID)") else {
+                    fail("读回校验失败：DSH 标记条目缺失")
+                }
+                print("已安装 DSH hooks → \(settingsURL.path)（重启 dsh 生效）")
+            }
+        } catch {
+            fail("写入失败：\(error.localizedDescription)")
+        }
+        return
+    }
+
     let existing = try? Data(contentsOf: settingsURL)
     do {
-        let newData: Data?
         if uninstall {
             guard let existing else {
                 print("没有配置文件，无需卸载。")
                 return
             }
-            newData = try VibeKeyHookInstaller.unmergedSettings(existing: existing)
-            guard let newData else {
+            guard let newData = try VibeKeyHookInstaller.unmergedSettings(existing: existing) else {
                 print("未找到 vibekey-lite 条目，无需卸载。")
                 return
             }
             try backupAndWrite(existing: existing, new: newData, at: settingsURL)
             print("已卸载 \(target.displayName) 的 vibekey-lite hooks（其余配置原样保留）。")
         } else {
-            newData = try VibeKeyHookInstaller.mergedSettings(
+            let newData = try VibeKeyHookInstaller.mergedSettings(
                 existing: existing, target: target, ctlPath: ctlPathForHooks()
             )
-            try backupAndWrite(existing: existing, new: newData!, at: settingsURL)
+            try backupAndWrite(existing: existing, new: newData, at: settingsURL)
             print("已安装 \(target.displayName) hooks → \(settingsURL.path)")
+            if target == .codex {
+                let configURL = home.appendingPathComponent(".codex/config.toml")
+                let configExisting = try? String(contentsOf: configURL, encoding: .utf8)
+                if let updated = VibeKeyHookInstaller.codexConfigEnablingHooks(existing: configExisting) {
+                    try backupAndWrite(
+                        existing: configExisting.map { Data($0.utf8) },
+                        new: Data(updated.utf8), at: configURL
+                    )
+                    print("已在 config.toml 启用 [features] hooks = true")
+                }
+                print("注意：Codex 内运行 /hooks 批准各条目后才会生效。")
+            }
         }
         // Read-back verification.
         let written = try Data(contentsOf: settingsURL)

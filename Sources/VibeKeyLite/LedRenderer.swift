@@ -89,6 +89,13 @@ final class LedRenderer {
         }
     }
 
+    /// Studio took over the device: stop writing until it exits.
+    func suspendForVendor() {
+        suspended = true
+        cancelAnimation()
+        logger.notice("LED rendering suspended while Ulanzi Studio runs")
+    }
+
     // MARK: - Transitions
 
     private func transition(to state: VibeKeyAgentState, force: Bool = false) {

@@ -32,7 +32,7 @@ public enum VibeKeyAgentTarget: String, CaseIterable, Codable, Sendable {
         case .qwenCode: return ".qwen/settings.json"
         case .qoder: return ".qoder/settings.json"
         case .codebuddy: return ".codebuddy/settings.json"
-        case .codex: return ".codex/config.toml"
+        case .codex: return ".codex/hooks.json"
         case .dsh: return ".dsh/profiles/web/cordis.patch.yml"
         case .qwenwork: return nil
         }
@@ -86,6 +86,16 @@ public enum VibeKeyAgentTarget: String, CaseIterable, Codable, Sendable {
 
     public var hookDialect: String {
         self == .dsh ? "dsh" : "claude"
+    }
+
+    /// Targets whose hooks file uses the Claude-compatible JSON contract.
+    /// Codex keeps the same JSON shape in ~/.codex/hooks.json (experimental
+    /// hooks feature must also be enabled in config.toml).
+    public var usesClaudeJSONContract: Bool {
+        switch self {
+        case .claudeCode, .qwenCode, .qoder, .codebuddy, .codex: return true
+        case .dsh, .qwenwork: return false
+        }
     }
 }
 
@@ -145,10 +155,15 @@ public enum VibeKeyHookInstaller {
             }
         }
         var installed = false
-        if let relative = target.settingsRelativePath, target.hookDialect == "claude" {
+        if let relative = target.settingsRelativePath {
             let settingsURL = homeDirectory.appendingPathComponent(relative)
-            if let data = try? Data(contentsOf: settingsURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if target == .dsh {
+                if let text = try? String(contentsOf: settingsURL, encoding: .utf8) {
+                    installed = text.contains("- id: \(dshMarkerID)")
+                }
+            } else if target.usesClaudeJSONContract,
+                      let data = try? Data(contentsOf: settingsURL),
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 installed = containsMarker(in: json)
             }
         }
@@ -178,7 +193,7 @@ public enum VibeKeyHookInstaller {
         target: VibeKeyAgentTarget,
         ctlPath: String
     ) throws -> Data {
-        guard target.hookDialect == "claude", target.settingsRelativePath != nil else {
+        guard target.usesClaudeJSONContract, target.settingsRelativePath != nil else {
             throw VibeKeyHookInstallerError.unsupportedTarget(target.displayName)
         }
         var root: [String: Any] = [:]
@@ -263,5 +278,124 @@ public enum VibeKeyHookInstaller {
             }
         }
         return false
+    }
+
+    // MARK: - Codex features gate
+
+    /// Codex hooks are experimental: config.toml needs `[features] hooks = true`.
+    /// Line-based merge that preserves everything else. Returns nil when the
+    /// flag is already enabled.
+    public static func codexConfigEnablingHooks(existing: String?) -> String? {
+        var lines = (existing ?? "").components(separatedBy: "\n")
+        var featuresStart: Int?
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "[features]" {
+                featuresStart = index
+                continue
+            }
+            if let start = featuresStart, index > start {
+                if trimmed.hasPrefix("[") { break }
+                if trimmed.range(of: #"^hooks\s*=\s*true\b"#, options: .regularExpression) != nil {
+                    return nil // already enabled
+                }
+                if trimmed.range(of: #"^hooks\s*="#, options: .regularExpression) != nil {
+                    lines[index] = "hooks = true"
+                    return lines.joined(separator: "\n")
+                }
+            }
+        }
+        if let start = featuresStart {
+            lines.insert("hooks = true", at: start + 1)
+        } else {
+            if !lines.isEmpty, lines.last != "" { lines.append("") }
+            lines.append("[features]")
+            lines.append("hooks = true")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - DSH cordis.patch.yml
+
+    /// DSH installs a dsh-hooks block into the profile's cordis.patch.yml.
+    /// We manage one marked list item; other items are preserved verbatim.
+    public static let dshMarkerID = "vibekey-lite-led"
+
+    public static func dshHookBlock(ctlPath: String) -> String {
+        """
+        - id: \(dshMarkerID)
+          config:
+            hooks:
+              - on: 'turn/start'
+                run: '\(ctlPath) hook --agent dsh --event turn/start --dialect dsh'
+              - on: 'tool/call'
+                run: '\(ctlPath) hook --agent dsh --event tool/call --dialect dsh'
+              - on: 'turn/end'
+                run: '\(ctlPath) hook --agent dsh --event turn/end --dialect dsh'
+              - on: 'approval/asked'
+                run: '\(ctlPath) hook --agent dsh --event approval/asked --dialect dsh'
+              - on: 'agent/error'
+                run: '\(ctlPath) hook --agent dsh --event agent/error --dialect dsh'
+        """
+    }
+
+    /// Merges our marked block into the YAML text. Idempotent: an existing
+    /// marked block (from `- id: vibekey-lite-led` to the next top-level
+    /// `- id:` or EOF) is replaced.
+    public static func mergedDshPatch(existing: String?, ctlPath: String) -> String {
+        let block = dshHookBlock(ctlPath: ctlPath)
+        guard let existing, !existing.isEmpty else {
+            return block + "\n"
+        }
+        let lines = existing.components(separatedBy: "\n")
+        var output: [String] = []
+        var skipping = false
+        var replaced = false
+        for line in lines {
+            if line.hasPrefix("- id: \(dshMarkerID)") {
+                skipping = true
+                if !replaced {
+                    output.append(contentsOf: block.components(separatedBy: "\n"))
+                    replaced = true
+                }
+                continue
+            }
+            if skipping {
+                if line.hasPrefix("- id:") || (line.hasPrefix("- ") && !line.hasPrefix("  ")) {
+                    skipping = false
+                    output.append(line)
+                }
+                continue
+            }
+            output.append(line)
+        }
+        if !replaced {
+            if output.last != "" { output.append("") }
+            output.append(contentsOf: block.components(separatedBy: "\n"))
+        }
+        return output.joined(separator: "\n")
+    }
+
+    /// Removes the marked block. Returns nil when absent.
+    public static func unmergedDshPatch(existing: String) -> String? {
+        guard existing.contains("- id: \(dshMarkerID)") else { return nil }
+        let lines = existing.components(separatedBy: "\n")
+        var output: [String] = []
+        var skipping = false
+        for line in lines {
+            if line.hasPrefix("- id: \(dshMarkerID)") {
+                skipping = true
+                continue
+            }
+            if skipping {
+                if line.hasPrefix("- id:") || (line.hasPrefix("- ") && !line.hasPrefix("  ")) {
+                    skipping = false
+                    output.append(line)
+                }
+                continue
+            }
+            output.append(line)
+        }
+        return output.joined(separator: "\n")
     }
 }

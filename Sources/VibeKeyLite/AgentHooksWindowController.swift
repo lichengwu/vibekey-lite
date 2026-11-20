@@ -137,7 +137,11 @@ final class AgentHooksWindowController: NSWindowController {
             showQwenWorkGuide()
             return
         }
-        guard target.hookDialect == "claude", let relative = target.settingsRelativePath else {
+        if target == .dsh {
+            performDshInstall(uninstall: false)
+            return
+        }
+        guard target.usesClaudeJSONContract, let relative = target.settingsRelativePath else {
             statusLabel.stringValue = "\(target.displayName) 的专用安装器将在后续版本提供（S5）。"
             return
         }
@@ -155,7 +159,19 @@ final class AgentHooksWindowController: NSWindowController {
                 statusLabel.stringValue = "读回校验失败：标记条目缺失。"
                 return
             }
-            statusLabel.stringValue = "已接入 \(target.displayName)。重启该 Agent 的会话后生效。"
+            if target == .codex {
+                let configURL = home.appendingPathComponent(".codex/config.toml")
+                let configExisting = try? String(contentsOf: configURL, encoding: .utf8)
+                if let updated = VibeKeyHookInstaller.codexConfigEnablingHooks(existing: configExisting) {
+                    try writeWithBackup(
+                        existing: configExisting.map { Data($0.utf8) },
+                        new: Data(updated.utf8), at: configURL
+                    )
+                }
+                statusLabel.stringValue = "已接入 Codex。请在 Codex 内运行 /hooks 批准各条目后生效。"
+            } else {
+                statusLabel.stringValue = "已接入 \(target.displayName)。重启该 Agent 的会话后生效。"
+            }
         } catch {
             statusLabel.stringValue = "安装失败：\(error.localizedDescription)"
         }
@@ -167,6 +183,10 @@ final class AgentHooksWindowController: NSWindowController {
             qwenWorkListenerActive = false
             statusLabel.stringValue = "已停止本机监听。请到企业管理后台清空对应 Hooks 规则。"
             refresh()
+            return
+        }
+        if target == .dsh {
+            performDshInstall(uninstall: true)
             return
         }
         guard let relative = target.settingsRelativePath else { return }
@@ -185,6 +205,35 @@ final class AgentHooksWindowController: NSWindowController {
             statusLabel.stringValue = "已卸载 \(target.displayName) 的灯效 hooks（其余配置保留）。"
         } catch {
             statusLabel.stringValue = "卸载失败：\(error.localizedDescription)"
+        }
+        refresh()
+    }
+
+    private func performDshInstall(uninstall: Bool) {
+        let settingsURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(VibeKeyAgentTarget.dsh.settingsRelativePath!)
+        let existing = try? String(contentsOf: settingsURL, encoding: .utf8)
+        do {
+            if uninstall {
+                guard let existing,
+                      let unmerged = VibeKeyHookInstaller.unmergedDshPatch(existing: existing) else {
+                    statusLabel.stringValue = "未找到 vibekey-lite 条目，无需卸载。"
+                    return
+                }
+                try writeWithBackup(existing: Data(existing.utf8), new: Data(unmerged.utf8), at: settingsURL)
+                statusLabel.stringValue = "已卸载 DSH 灯效 hooks。"
+            } else {
+                let merged = VibeKeyHookInstaller.mergedDshPatch(existing: existing, ctlPath: ctlPath())
+                try writeWithBackup(existing: existing.map { Data($0.utf8) }, new: Data(merged.utf8), at: settingsURL)
+                let written = try String(contentsOf: settingsURL, encoding: .utf8)
+                guard written.contains("- id: \(VibeKeyHookInstaller.dshMarkerID)") else {
+                    statusLabel.stringValue = "读回校验失败：DSH 标记条目缺失。"
+                    return
+                }
+                statusLabel.stringValue = "已接入 DeepSeek Harness。重启 dsh 后生效。"
+            }
+        } catch {
+            statusLabel.stringValue = "DSH 写入失败：\(error.localizedDescription)"
         }
         refresh()
     }

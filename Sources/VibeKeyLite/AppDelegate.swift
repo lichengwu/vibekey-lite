@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var ledRenderer: LedRenderer?
     private var ctlServer: CtlSocketServer?
     private var agentHooksWindowController: AgentHooksWindowController?
+    private var ledSessionAggregator = VibeKeyLedSessionAggregator()
+    private var ledStaleTimer: Timer?
     private var workspaceObservers: [NSObjectProtocol] = []
     private let actionPerformer = ActionPerformer()
     private var knobPressStateMachine = KnobPressStateMachine()
@@ -87,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         actionPerformer.releaseAll()
         ctlServer?.stop()
         ctlServer = nil
+        ledStaleTimer?.invalidate()
+        ledStaleTimer = nil
         ledRenderer?.shutdown()
         ledRenderer = nil
         if let error = hardwareListener?.stop() {
@@ -130,6 +134,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         ledRenderer = renderer
+        let staleTimer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self, let renderer = self.ledRenderer else { return }
+            let resolved = self.ledSessionAggregator.prune(now: Date().timeIntervalSince1970)
+            if resolved != renderer.state {
+                renderer.request(resolved)
+            }
+        }
+        RunLoop.main.add(staleTimer, forMode: .common)
+        ledStaleTimer = staleTimer
         let server = CtlSocketServer { [weak self] request in
             self?.handleCtlRequest(request) ?? .init(ok: false, error: "App 未就绪")
         }
@@ -158,8 +171,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) else {
                 return .init(ok: true, state: renderer.state.rawValue)
             }
-            renderer.request(state)
-            return .init(ok: true, state: state.rawValue)
+            let session = request.session ?? "default"
+            let resolved = ledSessionAggregator.record(
+                session: session, state: state, now: Date().timeIntervalSince1970
+            )
+            renderer.request(resolved)
+            return .init(ok: true, state: resolved.rawValue)
         case "restore":
             renderer.shutdown()
             return .init(ok: true, state: "off")
@@ -385,6 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if self?.hardwareSyncInProgress == true {
                 self?.vendorInterferedDuringHardwareSync = true
             }
+            self?.ledRenderer?.suspendForVendor()
             self?.stopEnhancedMode(
                 notice: "Ulanzi Studio 已开启；AU05 已退回设备原生按键。"
             )
@@ -397,6 +415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] notification in
             guard Self.isVendorApplication(notification) else { return }
             self?.resumeEnhancedModeIfSafe()
+            self?.ledRenderer?.resume()
         })
     }
 
