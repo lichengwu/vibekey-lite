@@ -129,6 +129,16 @@ Settings 面板「Agent 灯效接入」按钮 → 弹出菜单/列表窗口：
 | S4 | Settings「Agent 灯效接入」UI：6 Agent 列表 + 一键安装/卸载 | 点按钮装 Qoder/Claude，读回校验过 |
 | S5 | DSH dialect + Codex TOML 安装器 + 多会话仲裁 + Studio 共存 | 双会话并发审批优先；DSH 装后事件到灯 |
 
+### 7.1 渲染核心纯逻辑化（2026-11-21，commit b3b1784 / 527b14f）
+
+S2 的 App 侧 `LedRenderer`（Timer/DispatchQueue 驱动）之外，新增 **`VibeKeyLedRenderEngine`（Core 纯结构体）**：无定时器、无 HID，宿主以单调时钟 `now` 驱动 `request/tick/writeCompleted/resume`，引擎输出 `WritePlan`（desired/expected/force）。R1–R7 全部规则在注入时钟下可单测（24 条），含设计稿未覆盖的边界：
+
+- **error 期间来新事件**：非 error 事件立即抢占闪烁序列，前态快照丢弃（不延迟恢复）
+- **写失败重试不被去重吞掉**：`lastRenderedState`（去重标记）与 `currentState`（对外报告）分离，失败回滚前者
+- **WritePlan.force**：状态入场/动画步的写入即使与上次确认表相同也不得被宿主丢弃（固件需要"新写入"触发渲染）
+
+仲裁器补 6 条边界测试（120s 恰好过期、同会话覆盖、优先级链、resolve 只读）。**硬件接线待 thinking 灯观察结论后进行**：届时 App 侧 LedRenderer 改为薄壳驱动 Engine，Timer 只负责按时调 tick。
+
 ## 8. 用户配合
 
 - S2/S3 验收需真机看灯（每轮约 2 分钟，沿用"一次一状态、保持住等确认"节奏）

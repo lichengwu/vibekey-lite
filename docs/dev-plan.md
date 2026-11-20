@@ -140,7 +140,7 @@ AU05 设备（4 LED）
 | M0 | 合并 upstream 可靠性修复 + 验证当前构建能跑 | 🟢 | 用户授权输入监控/辅助使用 | ✅ 完成 |
 | M1 | 方案 A：bundleID→profile 自动切换 | 🟢 | 用户提供映射表 | ✅ 代码完成（appProfileMapping + 200ms 防抖 + 启动读前台 + 9 单测）；映射表默认空，待用户提供 |
 | M2-pre | LED 硬件探针 | 🟡 | 用户配合观察 | ✅ 完成，两次修正结论见 protocol.md（全量载荷 + workTime=255 闸门；idx0 固件自驱不可控） |
-| M2 | 状态灯效 CLI + hooks 接入 | 🟡 | M2-pre 结果 | ✅ S1-S5 代码完成（140+ 单测）；六状态真机验收基本通过，thinking 隔离复测待用户确认；QwenWork loopback 监听未实现（UI 引导已就位） |
+| M2 | 状态灯效 CLI + hooks 接入 | 🟡 | M2-pre 结果 | ✅ S1-S5 代码完成；**渲染核心已抽为 Core 纯逻辑 VibeKeyLedRenderEngine（注入时钟，R1-R7 全覆盖 24 测，commit b3b1784），硬件渲染待灯观察后接线**；六状态真机验收基本通过，thinking 隔离复测待用户确认；QwenWork loopback 监听未实现（UI 引导已就位） |
 | M3 | 按需选做 | 🟢/🟡 | M1 | 未开始 |
 
 每阶段完成即 commit 到自己的 fork（origin 已是 SSH 可 push）。

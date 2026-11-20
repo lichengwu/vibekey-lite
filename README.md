@@ -110,6 +110,8 @@ CTL="/Applications/VibeKey Lite.app/Contents/MacOS/vibekeyctl"
 
 多個 Agent 會話同時跑時，按優先級顯示最高狀態：需審批 > 出錯 > 壓縮 > 思考 > 幹活 > 完成 > 空閒。120 秒無事件的會話自動剔除。Ulanzi Studio 開啟時燈效掛起，退出後自動恢復。
 
+> 實作狀態（2026-11-21）：渲染核心規則（R1–R7：亮度翻轉閃爍、attention 10s 降級、error 快照恢復、防抖豁免、寫失敗掛起重放、多會話仲裁）已抽為 Core 純邏輯 `VibeKeyLedRenderEngine`，注入時鐘單測全綠；硬體渲染接線待燈效觀察確認後完成。
+
 燈效協議細節見 [docs/protocol.md](docs/protocol.md)，設計見 [docs/m2-led-design.md](docs/m2-led-design.md)。
 
 ## 建置
@@ -233,6 +235,8 @@ CLI: `vibekeyctl led --state <state> | --restore`, `status`, `detect`, `install-
 One-click agent onboarding: menu bar settings → "Agent 灯效接入…" lists each agent with detection status; Install backs up the existing config and additively merges hooks tagged `vibekey-lite`; Uninstall removes only tagged entries. Absent software is never configured — you are prompted to install it first. Supported: Claude Code, Qwen Code, Qoder, CodeBuddy/WorkBuddy (shared JSON installer); Codex (hooks.json + config.toml feature flag, approve via `/hooks`); DeepSeek Harness (cordis.patch.yml); QwenWork (enterprise edition, HTTP hooks via console paste guide).
 
 Multi-session arbitration shows the highest-priority state (approval > error > compaction > thinking > working > done > idle); sessions silent for 120 s are dropped. Lights suspend while Ulanzi Studio runs and resume when it exits.
+
+> Implementation status (2026-11-21): the rendering rules (R1–R7: brightness-toggle blinking, attention 10 s downgrade, error snapshot restore, debounce bypass, write-failure suspend/replay, multi-session arbitration) are implemented as pure Core logic in `VibeKeyLedRenderEngine` with injected-clock tests, all green; hardware wiring follows after the pending LED observation.
 
 See [docs/protocol.md](docs/protocol.md) and [docs/m2-led-design.md](docs/m2-led-design.md).
 
