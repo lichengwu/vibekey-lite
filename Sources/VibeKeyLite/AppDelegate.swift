@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     private var settingsViewController: SettingsViewController?
     private var hardwareListener: IOKitHardwareListener?
+    private var ledRenderer: LedRenderer?
+    private var ctlServer: CtlSocketServer?
     private var workspaceObservers: [NSObjectProtocol] = []
     private let actionPerformer = ActionPerformer()
     private var knobPressStateMachine = KnobPressStateMachine()
@@ -53,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugLog.log("launch: offlineProfile=\(configuration.offlineProfile?.rawValue ?? "nil") needsHardwareSync=\(needsHardwareSync) activeProfile=\(configuration.activeProfile.rawValue)")
         configureStatusItemAndPopover()
         configureHardwareListener()
+        configureLedRendering()
         configureLifecycleObservers()
         refreshUI()
 
@@ -81,6 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         connectionRecoveryTimer = nil
         resetKnobPressState()
         actionPerformer.releaseAll()
+        ctlServer?.stop()
+        ctlServer = nil
+        ledRenderer?.shutdown()
+        ledRenderer = nil
         if let error = hardwareListener?.stop() {
             logger.error("Offline shutdown failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -91,6 +98,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notice = "AU05 写入中；完成后再结束 App。"
         refreshUI()
         return .terminateCancel
+    }
+
+    // MARK: - LED rendering + ctl socket
+
+    private func configureLedRendering() {
+        let renderer = LedRenderer(
+            apply: { [weak self] desired, expected, completion in
+                guard let listener = self?.hardwareListener, self?.listenerActive == true else {
+                    completion(IOKitHardwareListenerError.onlinePrerequisiteLost)
+                    return
+                }
+                listener.applyLedState(desired, expected: expected, completion: completion)
+            },
+            readState: { [weak self] completion in
+                guard let listener = self?.hardwareListener, self?.listenerActive == true else {
+                    completion(nil, IOKitHardwareListenerError.onlinePrerequisiteLost)
+                    return
+                }
+                listener.readLedState(completion: completion)
+            }
+        )
+        ledRenderer = renderer
+        let server = CtlSocketServer { [weak self] request in
+            self?.handleCtlRequest(request) ?? .init(ok: false, error: "App 未就绪")
+        }
+        server.start()
+        ctlServer = server
+    }
+
+    private func handleCtlRequest(_ request: VibeKeyCtlProtocol.Request) -> VibeKeyCtlProtocol.Response {
+        guard let renderer = ledRenderer else {
+            return .init(ok: false, error: "灯效渲染器未就绪")
+        }
+        switch request.command {
+        case "led":
+            guard let raw = request.state, let state = VibeKeyAgentState(rawValue: raw) else {
+                return .init(ok: false, error: "未知状态 \(request.state ?? "nil")")
+            }
+            renderer.request(state)
+            return .init(ok: true, state: state.rawValue)
+        case "hook":
+            guard let event = request.event else {
+                return .init(ok: false, error: "缺少 event")
+            }
+            let dialect = request.dialect ?? "claude"
+            guard let state = VibeKeyAgentEventMapper.state(
+                agentDialect: dialect, event: event, when: request.when
+            ) else {
+                return .init(ok: true, state: renderer.state.rawValue)
+            }
+            renderer.request(state)
+            return .init(ok: true, state: state.rawValue)
+        case "restore":
+            renderer.shutdown()
+            return .init(ok: true, state: "off")
+        case "status":
+            return .init(ok: true, state: renderer.state.rawValue)
+        default:
+            return .init(ok: false, error: "未知命令 \(request.command)")
+        }
     }
 
     private func loadConfiguration() {

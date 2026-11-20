@@ -9,12 +9,17 @@ let package = Package(
     ],
     products: [
         .executable(name: "VibeKeyLite", targets: ["VibeKeyLite"]),
+        .executable(name: "vibekeyctl", targets: ["vibekeyctl"]),
         .library(name: "VibeKeyLiteCore", targets: ["VibeKeyLiteCore"])
     ],
     targets: [
         .target(name: "VibeKeyLiteCore"),
         .executableTarget(
             name: "VibeKeyLite",
+            dependencies: ["VibeKeyLiteCore"]
+        ),
+        .executableTarget(
+            name: "vibekeyctl",
             dependencies: ["VibeKeyLiteCore"]
         ),
         .testTarget(
