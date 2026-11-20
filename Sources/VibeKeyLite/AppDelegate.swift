@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hardwareListener: IOKitHardwareListener?
     private var ledRenderer: LedRenderer?
     private var ctlServer: CtlSocketServer?
+    private var agentHooksWindowController: AgentHooksWindowController?
     private var workspaceObservers: [NSObjectProtocol] = []
     private let actionPerformer = ActionPerformer()
     private var knobPressStateMachine = KnobPressStateMachine()
@@ -101,6 +102,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - LED rendering + ctl socket
+
+    private func showAgentHooksWindow() {
+        if agentHooksWindowController == nil {
+            agentHooksWindowController = AgentHooksWindowController()
+        }
+        agentHooksWindowController?.showWindow(nil)
+        agentHooksWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     private func configureLedRendering() {
         let renderer = LedRenderer(
@@ -243,6 +253,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.onQuit = {
             NSApplication.shared.terminate(nil)
+        }
+        settings.onShowAgentHooks = { [weak self] in
+            self?.showAgentHooksWindow()
         }
         settingsViewController = settings
 

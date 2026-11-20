@@ -9,6 +9,7 @@ final class SettingsViewController: NSViewController {
     var onToggleEnhancedMode: (() -> Void)?
     var onToggleLaunchAtLogin: (() -> Void)?
     var onQuit: (() -> Void)?
+    var onShowAgentHooks: (() -> Void)?
 
     private var configuration: AppConfiguration
     private var listenerActive = false
@@ -109,10 +110,18 @@ final class SettingsViewController: NSViewController {
         )
         quitButton.bezelStyle = .rounded
 
+        let agentHooksButton = NSButton(
+            title: "Agent 灯效接入…",
+            target: self,
+            action: #selector(showAgentHooks(_:))
+        )
+        agentHooksButton.bezelStyle = .rounded
+
         let buttons = NSStackView(views: [
             syncButton,
             restartButton,
             enhancedModeButton,
+            agentHooksButton,
             NSView(),
             quitButton
         ])
@@ -392,5 +401,9 @@ final class SettingsViewController: NSViewController {
 
     @objc private func quit(_ sender: Any?) {
         onQuit?()
+    }
+
+    @objc private func showAgentHooks(_ sender: Any?) {
+        onShowAgentHooks?()
     }
 }
