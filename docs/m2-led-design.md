@@ -66,23 +66,32 @@ Codex 走 config.toml（官方 ustudio-cli 已有先例）。DSH 走 cordis.patc
 
 | Agent | 配置文件 | 契约 | 事件映射来源 | 本机状态 |
 | --- | --- | --- | --- | --- |
-| Claude Code | `~/.claude/settings.json` | Claude hooks JSON | 官方 mappings.js `claude-code` | 未装（目录无） |
-| Qwen Code（千问） | `~/.qwen/settings.json` | Claude 同构（官方文档确认字段兼容，23 事件） | 复用 claude-code 表 | 未装 |
+| Claude Code | `~/.claude/settings.json` | Claude hooks JSON（command） | 官方 mappings.js `claude-code` | 未装（目录无） |
+| Qwen Code（千问 CLI） | `~/.qwen/settings.json` | Claude 同构（官方文档确认字段兼容，23 事件） | 复用 claude-code 表 | 未装 |
 | Qoder（阿里） | `~/.qoder/settings.json` | Claude 同构（官方 docs.qoder.com，27 事件含 TaskCompleted/PermissionRequest） | 复用 claude-code 表 + TaskCompleted→attention | **已装**（~/.qoder 存在） |
 | CodeBuddy（腾讯） | `~/.codebuddy/settings.json`（待核实路径） | Claude 同构 | 官方 mappings.js `codebuddy` | WorkBuddy 在用 |
 | Codex | `~/.codex/config.toml` | TOML notify/hooks | 官方 mappings.js `codex` + installers/codex-config.js | 未装 |
 | DeepSeek Harness (DSH) | `~/.dsh/profiles/<p>/cordis.patch.yml` | dsh-hooks 插件：`on: turn/end / tool/call / approval/asked`，`run:` 命令，stdin context JSON | turn/end(completed)→attention、tool/call→working、approval/asked→notification、agent/error→error | 未装 |
+| **千问办公 QwenWork**（阿里，桌面端） | **企业管理后台**（安全管控→Hooks 规则），非本地文件 | **仅 HTTP hook**（type 固定 http，其他类型客户端拒收）；企业旗舰版 qwenwork_premium 12 事件；请求体与 Claude 同构（session_id/hook_event_name） | 复用 claude-code 表（事件名一致） | 未检测到 |
+
+**QwenWork 特殊接入（官网核实 2026-11-20）**：它不能写本地配置、不能执行本地命令，只能 POST 到 HTTP 地址。方案：
+- Lite 内起 **loopback HTTP 监听**（127.0.0.1:27950 `/qwenwork`，仅回环、随机 bearer token），收到事件 POST → 复用同一状态映射 → 渲染灯效 → 立即返回 `{}`（不干预企业流程）
+- App 内「安装」按钮 = 启动监听 + 生成各事件的 Hook 组 JSON（url 指向本机监听）+ **一键复制** + 引导文案"到企业管理后台 安全管控→Hooks 规则 粘贴"；「卸载」= 停止监听 + 提示到后台清空配置
+- 个人版无 hooks 能力 → 检测不到企业版时明确提示"千问办公 hooks 仅企业旗舰版支持"
+- 官方文档明示 127.0.0.1 指客户端本机——单机自用场景正好成立
 
 预留（官方 mappings.js 已有表，安装器后续按同构扩展）：gemini-cli、cursor-agent、kiro-cli、kimi-cli、copilot-cli。
 
-### 4.2 App 内一键安装 UX
+### 4.2 App 内一键安装 UX（2026-11-20 用户确认版）
 
-Settings 面板新增「Agent 灯效接入」分区：
-- 每行一个 Agent：名称 + 检测状态（`已检测到 ~/.qoder` / `未安装`）+ 三态按钮 **安装 / 已接入✓ / 卸载**
-- 点「安装」→ 后台执行：检测配置目录 → **备份原文件**（`settings.json.bak-vibekey-<ts>`）→ 合并写入 hooks 条目（只增不删，保留用户已有 hooks）→ 读回校验 → 按钮变「已接入✓」
-- 点「卸载」→ 只移除带 `name: "vibekey-lite"` 标记的条目，其余原样保留
-- 未检测到的 Agent 按钮置灰，提示"未检测到安装"；提供"仍要安装"次级选项（预写配置，装了即生效）
+Settings 面板「Agent 灯效接入」按钮 → 弹出菜单/列表窗口：
+- 列表每行一个 Agent：名称 + **安装检测状态**（`已安装` / `未检测到该软件`）+ 接入状态（`已接入✓` / 未接入）+ 操作按钮 **安装 / 卸载**（按当前状态只显示其一）
+- **安装前置检测（硬门槛）**：点「安装」先检测目标软件是否存在（配置目录 / App bundle / PATH 可执行文件三选一命中）。**未检测到 → 弹窗提示"请先安装 <Agent 名>，再回来接入灯效"，不写任何文件**，附官网下载链接按钮
+- 检测通过 → 备份原配置（`settings.json.bak-vibekey-<ts>`）→ 合并写入（只增不删，保留已有 hooks）→ 读回校验 → 列表刷新为「已接入✓」
+- 「卸载」→ 只移除 `name: "vibekey-lite"` 标记条目，其余原样保留 → 列表刷新
+- QwenWork 行走特殊流程（见 4.1）：安装=起本机监听+复制配置+后台粘贴引导；卸载=停监听+后台清空引导
 - 安装/卸载结果弹窗提示成功或失败原因（沿用现有 notice 弹窗模式）
+- 检测规则表（Core 内纯函数，可单测）：Claude Code=`~/.claude` 或 `claude` in PATH；Qwen Code=`~/.qwen` 或 `qwen`；Qoder=`~/.qoder` 或 Qoder.app；CodeBuddy=`~/.codebuddy` 或 App；Codex=`~/.codex` 或 `codex`；DSH=`~/.dsh` 或 `dsh`；QwenWork=QwenWork.app bundle
 
 ### 4.3 安装器实现要点
 
