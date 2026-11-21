@@ -1,20 +1,17 @@
-# 交付接线 Checklist（灯结论回来后照着跑）
+# 交付接线 Checklist（①② 已完成，剩部署+hooks）
 
-> 前提：代码与文档已达交付标准（219+ 测全绿），仅剩 ① thinking 灯观察结论 ② 部署放行。
+> 前提：代码与文档已达交付标准（222 测全绿）。① 灯观察 ✅（2026-11-21 确认=旋钮）；仅剩 部署放行 + hooks 装回。
 > 每步标注执行者：🤖=agent 可自动 / 👤=需佐井放行或操作。
 
-## 步骤 0：灯观察结论 👤
-- 佐井回答：隔离 thinking 测试闪的是**旋钮**还是**中+下**？
-- 若未做隔离测试：`vibekeyctl led --state thinking` 保持 15 秒肉眼确认（纯净环境，hooks 已卸载）。
+## 步骤 0：灯观察结论 ✅ 已完成（2026-11-21 10:14）
+- 佐井纯净环境隔离观察确认：**旋钮慢闪**。`thinkingLeds=[3]` CONFIRMED，provisional 全清。
 
-## 步骤 1：改唯一接线点 🤖
+## 步骤 1：改唯一接线点 ✅ 无需改动
 ```swift
 // Sources/VibeKeyLiteCore/VibeKeyLedRenderEngine.swift
-public static let thinkingLeds: [Int] = [3]      // 旋钮确认 → 保持
-// 或
-public static let thinkingLeds: [Int] = [1, 2]   // 中+下确认 → 改这里
+public static let thinkingLeds: [Int] = [3]      // 旋钮确认 → 保持（已确认）
 ```
-**只改这一个常量**，其余结构零改动（Pattern/Engine/薄壳/验收全部已适配任意灯位集合）。
+值正确无需改；注释/守卫已由 provisional 转 confirmed。其余结构零改动。
 
 ## 步骤 2：测试 🤖
 ```sh
@@ -60,7 +57,7 @@ open "/Applications/VibeKey Lite.app"
 
 | 项 | 分类 | 状态 |
 | --- | --- | --- |
-| `thinkingLeds` provisional 标注（4 处文档/注释） | 等灯结论 | 唯一接线点，故意保留 |
+| ~~`thinkingLeds` provisional 标注~~ | 等灯结论 | ✅ 已确认=旋钮（2026-11-21），标注全清 |
 | 新版 App 替换安装版 | 等部署放行 | 产物已构建验证 |
 | WorkBuddy hooks 装回 | 等部署放行 | 卸载状态保持中 |
 | ~~"S5 后续版本提供"过时文案~~ | 现在能清 | ✅ 已清（5b66e51） |

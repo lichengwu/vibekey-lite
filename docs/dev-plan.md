@@ -140,7 +140,7 @@ AU05 设备（4 LED）
 | M0 | 合并 upstream 可靠性修复 + 验证当前构建能跑 | 🟢 | 用户授权输入监控/辅助使用 | ✅ 完成 |
 | M1 | 方案 A：bundleID→profile 自动切换 | 🟢 | 用户提供映射表 | ✅ 代码完成（appProfileMapping + 200ms 防抖 + 启动读前台 + 9 单测）；映射表默认空，待用户提供 |
 | M2-pre | LED 硬件探针 | 🟡 | 用户配合观察 | ✅ 完成，两次修正结论见 protocol.md（全量载荷 + workTime=255 闸门；idx0 固件自驱不可控） |
-| M2 | 状态灯效 CLI + hooks 接入 | 🟡 | M2-pre 结果 | ✅ S1-S5 代码完成；**LedRenderer 已改薄壳接 Engine（4967efa），thinking 灯位单点占位 VibeKeyLedRenderEngine.thinkingLeds（provisional=[3]，灯结论回来只改这一处）**；QwenWork loopback 已实现（8199174/8ab9239）；**一键验收就绪（216d8b0：Harness 离线全断言 + scripts/acceptance.sh live 含 4 个佐井操作项）——代码就绪待灯结论**；219 测全绿 |
+| M2 | 状态灯效 CLI + hooks 接入 | 🟢 | M2-pre 结果 | ✅ S1-S5 代码完成；LedRenderer 薄壳接 Engine（4967efa）；**thinking 灯位已确认=旋钮（2026-11-21 佐井隔离观察，thinkingLeds=[3] CONFIRMED，provisional 全清）**；QwenWork loopback 已实现（8199174/8ab9239）；一键验收就绪（216d8b0）；222 测全绿；**仅剩部署放行+hooks 装回（OWNER-ACTIONS ②③）** |
 | M3 | 按需选做 | 🟢/🟡 | M1 | 未开始 |
 
 每阶段完成即 commit 到自己的 fork（origin 已是 SSH 可 push）。

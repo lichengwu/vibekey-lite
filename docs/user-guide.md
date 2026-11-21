@@ -71,7 +71,7 @@ VS Code/Cursor/Claude/ChatGPT 桌面端本机未装，装后同法查 ID 加入�
 | 状态 | 灯效 | 含义 |
 | --- | --- | --- |
 | idle/sleeping | 全灭 | 空闲 |
-| thinking | 慢闪 1.2s（灯位 provisional=旋钮，待观察结论） | 思考中 |
+| thinking | 旋钮慢闪 1.2s（灯位已确认 2026-11-21） | 思考中 |
 | working | 旋钮常亮 | 干活中 |
 | attention | 中键亮 10s 自动灭 | 回合完成 |
 | notification | 中+下快闪 0.6s | **需要你审批**（最高优先） |
@@ -124,7 +124,7 @@ live 模式 4 个「佐井操作」项：A7 六状态肉眼核对、B4 QwenWork 
 | `vibekeyctl` 报"VibeKey Lite 未运行" | App 没启动或 socket 未就绪；启动 App 等 3 秒重试 |
 | 灯完全不动 | ① Ulanzi Studio 在跑（灯效自动挂起，退出 Studio 即恢复）② 设备休眠（按任意键唤醒，10s 内自动重放）③ 连续写失败 3 次挂起（同②自愈） |
 | 手动设的状态被"抢走" | 真实 hooks 仲裁压制（见 §3），非 bug；纯净测试先卸 hooks |
-| thinking 闪的灯位和预期不符 | 灯位 provisional，以隔离观察结论为准；接线点唯一：`VibeKeyLedRenderEngine.thinkingLeds` |
+| thinking 闪的灯位和预期不符 | 灯位已确认=旋钮（2026-11-21 隔离观察）；若被"中+下快闪"抢走是真实 hooks 仲裁（见上），非映射错误；接线点唯一：`VibeKeyLedRenderEngine.thinkingLeds` |
 | 灯亮约 10 秒自己灭 | attention 状态的预期行为（完成铃）；若是 working 也这样，检查是否被 attention 事件覆盖 |
 | 语音键灯自己闪 | 固件按键反馈（按下→松开闪一下），正常，主机不可控 |
 | 授权反复失效 | 用了 ad-hoc 签名；必须同一张开发证书重签 |
