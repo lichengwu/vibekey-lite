@@ -144,6 +144,8 @@ VIBEKEY_SIGNING_IDENTITY="Apple Development: Your Name (TEAMID)" ./build-app.sh
 
 **自助操作手冊**：[docs/user-guide.md](docs/user-guide.md)（安裝替換、config.json 全字段、映射表、驗收腳本、hooks 流程、故障排查）。
 **交付接線清單**：[docs/delivery-checklist.md](docs/delivery-checklist.md)（燈觀察結論回來後照著跑，每步標注放行點）。
+**接線 Runbook**：[docs/wiring-runbook.md](docs/wiring-runbook.md)（兩種燈觀察結論分支均已預寫測試並演練，5 分鐘走完）。
+**佐井決策清單**：[docs/OWNER-ACTIONS.md](docs/OWNER-ACTIONS.md)（僅剩三項：燈觀察／部署放行／hooks 裝回）。
 
 ---
 
@@ -273,3 +275,5 @@ Licensed under the [MIT License](LICENSE). See [docs/protocol.md](docs/protocol.
 
 **Self-service manual**: [docs/user-guide.md](docs/user-guide.md) (install/replace, full config.json reference, mapping table, acceptance script, hooks flow, troubleshooting).
 **Delivery checklist**: [docs/delivery-checklist.md](docs/delivery-checklist.md) (run after the LED observation lands; each step marks who must approve).
+**Wiring runbook**: [docs/wiring-runbook.md](docs/wiring-runbook.md) (both observation-outcome branches pre-tested and rehearsed; 5-minute walkthrough).
+**Owner actions**: [docs/OWNER-ACTIONS.md](docs/OWNER-ACTIONS.md) (three remaining decisions: LED observation / deploy approval / hooks reinstall).
