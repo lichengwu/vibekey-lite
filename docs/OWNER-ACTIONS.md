@@ -1,48 +1,29 @@
 # 佐井决策/操作清单（OWNER-ACTIONS）
 
-> 更新：2026-11-21 10:15。代码与文档已 delivered（222 测全绿、已 push origin）。
-> ① 已完成；**仅剩 ②③ 两项**需要你放行。每项含：为什么需要你、具体做什么、不做的后果。
-> 接线细节见 docs/wiring-runbook.md；完整步骤见 docs/delivery-checklist.md。
+> 更新：2026-11-21 10:22。**三项全部完成，无待决策事项。** M2 端到端已闭环（真实 WorkBuddy 会话事件驱动灯）。
+> 存档如下；接线细节见 docs/wiring-runbook.md；完整步骤见 docs/delivery-checklist.md。
 
 ## ① thinking 灯观察结论 ✅ 已完成（2026-11-21 10:14）
 
 - **结论**：**旋钮慢闪**（佐井纯净环境隔离观察确认："现在是旋钮了，上面那个旋钮是闪动的"）。
 - **落地**：`thinkingLeds = [3]` 由 provisional 转 CONFIRMED，值无需改动；全部 provisional 标注已清除（代码注释/测试守卫/脚本/文档同步）。历史矛盾（六状态序列"中+下闪"）确认为真实 hooks 仲裁压制，映射从未错。
-- 唯一技术卡点已关闭。
 
-## ② 部署放行：新版 App 替换安装版
+## ② 部署放行 ✅ 已完成（2026-11-21 10:21，佐井放行"把最后两步也做完"）
 
-- **事项**：批准把已构建验证的新版（薄壳渲染器 + QwenWork 监听 + M1 自动切组）替换 `/Applications/VibeKey Lite.app`。
-- **为什么需要你**：替换会重启你正在用的常驻 App（短暂中断按键增强），属于影响运行环境的操作，按约定必须你放行。
-- **具体做什么**：回复"部署放行"即可，agent 执行 runbook 第 3-4 步（打包已演练过，同证书签名保留 TCC 授权）：
-  ```sh
-  # agent 执行，你只需放行：
-  osascript -e 'tell application "VibeKey Lite" to quit'
-  ditto ".build/app/VibeKey Lite.app" "/Applications/VibeKey Lite.app"
-  open "/Applications/VibeKey Lite.app"
-  ```
-  替换后建议跑 `./scripts/acceptance.sh live` 的 A7 段肉眼核对（2 分钟）。
-- **不做的后果**：运行中的旧版没有薄壳渲染器/QwenWork 监听/M1 自动切组；GitHub 上的新代码与本机运行版本持续脱节。
+- 222 测绿 → 同证书签名打包 → 替换 `/Applications/VibeKey Lite.app`（TCC 授权沿用）→ socket 正常 → working/thinking/idle 冒烟全过。
+- 运行版即最新代码：薄壳渲染器 + Engine 全规则 + QwenWork 监听（默认不启动）+ M1 自动切组（映射默认空）。
 
-## ③ hooks 装回放行：WorkBuddy 灯效端到端闭环
+## ③ hooks 装回 ✅ 已完成（2026-11-21 10:22）
 
-- **事项**：批准把 vibekey-lite hooks 装回 `~/.workbuddy/settings.json`（当前为纯净测试保持卸载）。
-- **为什么需要你**：装回后你的每个 WorkBuddy 会话都会驱动设备灯，属于改变日常使用体验的操作；且此前卸载是你明确要求的测试状态。
-- **具体做什么**：回复"hooks 装回"即可，agent 执行：
-  ```sh
-  "/Applications/VibeKey Lite.app/Contents/MacOS/vibekeyctl" install-hooks --agent codebuddy
-  ```
-  只增不删+自动备份，你原有的 hindsight/skill-forge hooks 不受影响。装回后随便跑一轮任务看灯即验收。
-- **不做的后果**：WorkBuddy 会话不驱动灯，M2 端到端价值无法在日常使用中兑现（手动 `led --state` 仍可用）。
+- `install-hooks --agent codebuddy` → 11 事件条目写入 `~/.workbuddy/settings.json`；原有 hindsight/skill-forge hooks 原样保留；备份 `settings.json.bak-vibekey-1795227746`。
+- **端到端即时验证**：装回 2 秒后渲染状态=working——巡检会话自身的 PreToolUse 事件已驱动灯，全链路（hooks→CLI→socket→Engine→HID→灯）真实闭环。
 
 ---
 
-## 依赖关系与建议顺序
-
-```
-① 灯观察 ✅ 已完成 → ② 部署放行（含 live 验收 2 分钟）→ ③ hooks 装回（10 秒）
-```
-②③ 可以一次性回复（例："部署放行；hooks 装回"），agent 按 runbook 第 3-6 步 5 分钟走完。
+## 后续可选（非待办，佐井自行决定）
+- M1 映射表：config.json 加 `appProfileMapping`（README/user-guide 有本机实查示例），重启 App 生效
+- QwenWork：需企业旗舰版环境，UI 点安装即起监听+复制配置
+- 六状态完整 live 验收：`./scripts/acceptance.sh live`（A7 段肉眼核对，随时可跑）
 
 ## 已放行、无需再决策的事项（存档）
 - push origin：已放行并执行（35+ commits 在 GitHub）
