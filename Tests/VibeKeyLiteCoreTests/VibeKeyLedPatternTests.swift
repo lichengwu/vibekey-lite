@@ -140,20 +140,60 @@ final class VibeKeyLedPatternTests: XCTestCase {
 
     // MARK: - Thinking LED placement (provisional wiring point)
 
-    func testThinkingDefaultIsKnobProvisional() {
-        // The Engine's single wiring point defaults to the knob until the
-        // user's isolated observation settles the question.
+    func testThinkingWiringPointIsOneOfTwoConfirmedCandidates() {
+        // The single wiring point must be exactly one of the two candidate
+        // placements — never empty, never the voice key, never a mix.
+        // This test stays green under EITHER observation outcome; the
+        // outcome-specific guard below pins the current provisional value.
+        let candidates: [[Int]] = [[3], [1, 2]]
+        XCTAssertTrue(candidates.contains(VibeKeyLedRenderEngine.thinkingLeds),
+                      "thinkingLeds must be [3] (knob) or [1,2] (middle+bottom)")
+    }
+
+    func testThinkingPatternFollowsWiringPoint() {
+        // Whatever the constant is, the pattern must honor it exactly:
+        // blinkLeds == constant, lit LEDs brightness 15, all others off.
+        let wiring = VibeKeyLedRenderEngine.thinkingLeds
+        let pattern = VibeKeyLedPattern.pattern(for: .thinking, thinkingLeds: wiring)
+        XCTAssertEqual(pattern.blinkLeds, wiring)
+        XCTAssertEqual(pattern.blinkPeriod, 1.2)
+        for led in 1...3 {
+            if wiring.contains(led) {
+                XCTAssertEqual(pattern.base.leds[led].alwaysOnBrightness, 15, "led \(led)")
+                XCTAssertEqual(pattern.base.leds[led].workType, 1, "led \(led)")
+            } else {
+                XCTAssertEqual(pattern.base.leds[led].workType, 0, "led \(led) must stay off")
+            }
+        }
+        // Brightness-only blink holds under either candidate (R1).
+        let lit = pattern.table(atTick: 0)
+        let dark = pattern.table(atTick: 1)
+        let writes = try? VibeKeyLedControl.writes(desired: dark, expected: lit)
+        XCTAssertEqual(writes?.count, wiring.count)
+        XCTAssertTrue(writes?.allSatisfy {
+            $0.mask == VibeKeyLedControl.FieldMask.alwaysOnBrightness
+        } ?? false)
+    }
+
+    func testThinkingCurrentProvisionalValueIsKnob() {
+        // OUTCOME GUARD: pins the CURRENT provisional value. When the user's
+        // observation lands, update this one assertion together with the
+        // constant (docs/wiring-runbook.md step 1 lists both edits).
         XCTAssertEqual(VibeKeyLedRenderEngine.thinkingLeds, [3])
-        let pattern = VibeKeyLedPattern.pattern(for: .thinking)
+    }
+
+    func testThinkingKnobPlacementContract() {
+        // Branch A (knob confirmed): full contract, pre-written so the
+        // constant change needs zero new test code.
+        let pattern = VibeKeyLedPattern.pattern(for: .thinking, thinkingLeds: [3])
         XCTAssertEqual(pattern.blinkLeds, [3])
         XCTAssertEqual(pattern.base.leds[3].alwaysOnBrightness, 15)
         XCTAssertEqual(pattern.base.leds[1].workType, 0)
         XCTAssertEqual(pattern.base.leds[2].workType, 0)
     }
 
-    func testThinkingAlternativePlacementMiddleBottom() {
-        // If the observation confirms middle+bottom, ONLY the constant
-        // changes; the pattern builder already supports any LED set.
+    func testThinkingMiddleBottomPlacementContract() {
+        // Branch B (middle+bottom confirmed): full contract, pre-written.
         let pattern = VibeKeyLedPattern.pattern(for: .thinking, thinkingLeds: [1, 2])
         XCTAssertEqual(pattern.blinkLeds, [1, 2])
         XCTAssertEqual(pattern.base.leds[1].alwaysOnBrightness, 15)

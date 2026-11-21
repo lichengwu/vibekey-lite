@@ -110,28 +110,39 @@ final class VibeKeyLedRenderEngineTests: XCTestCase {
     // MARK: - R1/R2 blink timing (brightness-only frames)
 
     func testThinkingBlinkPeriodAndBrightnessOnlyFrames() {
+        // Wiring-point agnostic: asserts against whatever thinkingLeds is,
+        // so this test stays green under either observation outcome.
+        let wiring = VibeKeyLedRenderEngine.thinkingLeds
         let entry = requestAndSettle(.thinking)
-        XCTAssertEqual(entry[0].desired.leds[3].alwaysOnBrightness, 15)
+        for led in wiring {
+            XCTAssertEqual(entry[0].desired.leds[led].alwaysOnBrightness, 15)
+        }
 
         // Half period = 0.6 s: first toggle dark.
         now += 0.6
         let dark = engine.tick(now: now)
         XCTAssertEqual(dark.count, 1)
-        XCTAssertEqual(dark[0].desired.leds[3].alwaysOnBrightness, 0)
-        XCTAssertEqual(dark[0].desired.leds[3].workType,
-                       entry[0].desired.leds[3].workType, "R1: workType must not change")
-        // The diff must be a single brightness frame.
+        for led in wiring {
+            XCTAssertEqual(dark[0].desired.leds[led].alwaysOnBrightness, 0)
+            XCTAssertEqual(dark[0].desired.leds[led].workType,
+                           entry[0].desired.leds[led].workType, "R1: workType must not change")
+        }
+        // The diff must be brightness-only frames, one per wiring LED.
         let writes = try? VibeKeyLedControl.writes(
             desired: dark[0].desired, expected: entry[0].desired
         )
-        XCTAssertEqual(writes?.count, 1)
-        XCTAssertEqual(writes?.first?.mask, VibeKeyLedControl.FieldMask.alwaysOnBrightness)
+        XCTAssertEqual(writes?.count, wiring.count)
+        XCTAssertTrue(writes?.allSatisfy {
+            $0.mask == VibeKeyLedControl.FieldMask.alwaysOnBrightness
+        } ?? false)
         completeWrite(dark)
 
         // Next half period: lit again.
         now += 0.6
         let lit = engine.tick(now: now)
-        XCTAssertEqual(lit[0].desired.leds[3].alwaysOnBrightness, 15)
+        for led in wiring {
+            XCTAssertEqual(lit[0].desired.leds[led].alwaysOnBrightness, 15)
+        }
         completeWrite(lit)
     }
 
