@@ -136,12 +136,10 @@ public struct VibeKeyLedPattern: Equatable, Sendable {
     /// read back from the device (never modified by the host).
     ///
     /// `thinkingLeds` selects which LEDs carry the thinking slow blink.
-    /// **Single wiring point for the pending thinking-LED observation**:
-    /// the default `[3]` (knob) is PROVISIONAL — the 2026-11-20 clean
-    /// sequence showed middle+bottom blinking instead, while the earlier
-    /// isolated test confirmed the knob. Until the user's isolated
-    /// observation settles it, callers keep the default; once settled,
-    /// change ONLY `VibeKeyLedRenderEngine.thinkingLeds` (one constant).
+    /// Default `[3]` (knob) is CONFIRMED by the user's isolated observation
+    /// (2026-11-21, clean environment). The single wiring point is
+    /// `VibeKeyLedRenderEngine.thinkingLeds`; the builder supports any LED
+    /// set (alternative candidate [1, 2] is covered by tests).
     public static func pattern(
         for state: VibeKeyAgentState,
         voiceKeyTuple: VibeKeyLedTuple = VibeKeyLedState.baseline.leds[0],

@@ -295,8 +295,8 @@ public enum VibeKeyAcceptanceHarness {
             record("D1", ok, ok ? "shutdown 输出出厂基线" : "基线恢复不符")
         }
 
-        // Thinking placement is provisional: assert the wiring point exists
-        // and the pattern honors it (no hardware claim).
+        // Thinking placement confirmed (knob, 2026-11-21): the wiring point
+        // exists and the pattern honors it (no hardware claim here).
         _ = thinkingLeds
         return results
     }

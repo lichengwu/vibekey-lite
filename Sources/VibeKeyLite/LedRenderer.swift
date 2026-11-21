@@ -7,9 +7,9 @@ import VibeKeyLiteCore
 /// (R1–R7, debounce, flash, downgrade, suspend/replay) lives in the Engine
 /// and is unit-tested there with an injected clock.
 ///
-/// Thinking LED placement is provisional: the single wiring point is
-/// `VibeKeyLedRenderEngine.thinkingLeds` — change that one constant when
-/// the user's isolated observation lands; nothing here changes.
+/// Thinking LED placement is confirmed (knob, user observation 2026-11-21);
+/// the single wiring point is `VibeKeyLedRenderEngine.thinkingLeds` —
+/// any future placement change touches only that constant.
 final class LedRenderer {
     private let apply: (VibeKeyLedState, VibeKeyLedState, Bool, @escaping (Error?) -> Void) -> Void
     private let readState: (@escaping (VibeKeyLedState?, Error?) -> Void) -> Void

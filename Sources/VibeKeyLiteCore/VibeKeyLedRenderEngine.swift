@@ -35,16 +35,13 @@ public struct VibeKeyLedRenderEngine {
     public static let debounceInterval: TimeInterval = 0.2
     public static let failureThreshold = 3
 
-    /// **THE single wiring point for the pending thinking-LED observation.**
-    /// PROVISIONAL default `[3]` (knob slow blink): the 2026-11-20 isolated
-    /// test confirmed the knob, but the clean six-state sequence showed
-    /// middle+bottom blinking instead (root cause: real WorkBuddy hooks
-    /// arbitrated Notification over the simulated thinking — arbitration
-    /// itself was correct). When the user's isolated observation settles
-    /// the question, change ONLY this constant:
-    ///   knob confirmed        → [3]   (keep)
-    ///   middle+bottom confirmed → [1, 2]
-    /// No structural change is needed anywhere else.
+    /// **THE single wiring point for the thinking-LED placement.**
+    /// CONFIRMED `[3]` (knob slow blink) by the user's isolated observation
+    /// on 2026-11-21 10:14 (clean environment, hooks uninstalled, state held
+    /// and visually verified). The earlier conflicting six-state sequence
+    /// was real WorkBuddy hooks arbitrating Notification over the simulated
+    /// thinking — arbitration correct, mapping never wrong.
+    /// Alternative candidate kept supported by the pattern builder: [1, 2].
     public static let thinkingLeds: [Int] = [3]
 
     public private(set) var currentState: VibeKeyAgentState = .idle

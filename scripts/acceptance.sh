@@ -54,17 +54,17 @@ hold_state() {
 }
 
 echo "=== 阶段 A：六状态真机渲染核对（A7 佐井操作）==="
-echo "提示：thinking 灯位以隔离观察结论为准（当前 provisional=旋钮）。"
+echo "提示：thinking 灯位已确认=旋钮慢闪（2026-11-21 隔离观察）。"
 pause_for_user "确认设备在线、Ulanzi Studio 已退出、WorkBuddy hooks 保持卸载（纯净环境）"
 hold_state idle 3 "全灭（参照基准）"
-hold_state thinking 8 "慢闪 1.2s —— 灯位待结论：旋钮 或 中+下"
+hold_state thinking 8 "旋钮慢闪 1.2s（灯位已确认 2026-11-21）"
 hold_state working 8 "旋钮常亮（亮度中档）"
 hold_state attention 11 "中键亮约 10 秒后自动灭"
 hold_state notification 8 "中+下快闪 0.6s，旋钮灭"
 hold_state error 6 "全部灯全亮闪 3 次后回到 notification 快闪"
 hold_state sweeping 8 "中→下→旋钮流水，0.5s 一步"
 "$CTL" led --state idle >/dev/null
-pause_for_user "A7：以上六段灯效是否与期望一致？thinking 闪的是哪颗灯？（把结论告诉巡检 agent，只改 VibeKeyLedRenderEngine.thinkingLeds 一处）"
+pause_for_user "A7：以上六段灯效是否与期望一致？（thinking 灯位已确认=旋钮；若发现不符再反馈 agent）"
 
 echo ""
 echo "=== 阶段 B：QwenWork 端到端（B4 佐井操作）==="

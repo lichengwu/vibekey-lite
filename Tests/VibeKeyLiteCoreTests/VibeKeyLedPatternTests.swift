@@ -138,13 +138,12 @@ final class VibeKeyLedPatternTests: XCTestCase {
         }
     }
 
-    // MARK: - Thinking LED placement (provisional wiring point)
+    // MARK: - Thinking LED placement (confirmed wiring point)
 
     func testThinkingWiringPointIsOneOfTwoConfirmedCandidates() {
         // The single wiring point must be exactly one of the two candidate
         // placements — never empty, never the voice key, never a mix.
-        // This test stays green under EITHER observation outcome; the
-        // outcome-specific guard below pins the current provisional value.
+        // The outcome guard below pins the confirmed value.
         let candidates: [[Int]] = [[3], [1, 2]]
         XCTAssertTrue(candidates.contains(VibeKeyLedRenderEngine.thinkingLeds),
                       "thinkingLeds must be [3] (knob) or [1,2] (middle+bottom)")
@@ -175,10 +174,11 @@ final class VibeKeyLedPatternTests: XCTestCase {
         } ?? false)
     }
 
-    func testThinkingCurrentProvisionalValueIsKnob() {
-        // OUTCOME GUARD: pins the CURRENT provisional value. When the user's
-        // observation lands, update this one assertion together with the
-        // constant (docs/wiring-runbook.md step 1 lists both edits).
+    func testThinkingConfirmedValueIsKnob() {
+        // OUTCOME GUARD: knob confirmed by the user's isolated observation
+        // on 2026-11-21 (clean environment, hooks uninstalled). Any future
+        // placement change updates this assertion with the constant
+        // (docs/wiring-runbook.md step 1 lists both edits).
         XCTAssertEqual(VibeKeyLedRenderEngine.thinkingLeds, [3])
     }
 
